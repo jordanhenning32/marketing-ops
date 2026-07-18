@@ -24,6 +24,21 @@ per-item approval. Metrics are never estimated; unmeasurable ones are marked
 > repository — the pipeline code and configuration are what's tracked here. The
 > app generates its own `content/` and `state/` on first run.
 
+## What it looks like
+
+![Daily Ops — the AI control panel: one-click actions where the AI does the work and a human approves](docs/screenshots/marketing-ops-daily.png)
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/marketing-ops-content.png" alt="Content Multiplier — drop a long-form video to auto-transcribe, cut Shorts, and prep multi-platform distribution"></td>
+<td width="50%"><img src="docs/screenshots/marketing-ops-distribution.png" alt="Distribution kit from one run — X thread, blog, email, Reddit and LinkedIn drafts plus clips"></td>
+</tr>
+</table>
+
+<p align="center"><em>One long video in (left) · a full multi-platform distribution kit out (right)</em></p>
+
+![Listening Radar — finds risk-management conversations, scores each as an engagement opportunity, and drafts a value-first reply for review; never auto-posts](docs/screenshots/marketing-ops-listening.png)
+
 ## Pipeline
 
 ```mermaid
