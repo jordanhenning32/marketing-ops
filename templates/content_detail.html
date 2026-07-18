@@ -1,0 +1,710 @@
+{% extends "base.html" %}
+{% block title %}{{ slug }} · Content · Shadow Edge Ops{% endblock %}
+
+{% block content %}
+<div class="se-flex se-gap-2 se-mb-3" style="justify-content: space-between; align-items: flex-end;">
+  <div>
+    <a href="/content" class="se-text-xs se-text-fg2" style="text-decoration: none;">← all runs</a>
+    <h1 class="se-h1 se-mt-1">{{ slug }}</h1>
+    <div class="se-sub">
+      {% if meta.source_filename %}
+        from <span class="mono">{{ meta.source_filename }}</span>
+      {% endif %}
+      {% if manifest %}<span class="se-pill stage-posted" style="margin-left: 0.4rem;">video pipeline</span>{% endif %}
+      {% if meta.has_timestamps %}<span class="se-pill stage-replied" style="margin-left: 0.4rem;">SRT timestamps</span>{% endif %}
+      {% if meta.product %}<span class="se-pill stage-researched" style="margin-left: 0.4rem;">{{ meta.product }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="se-text-xs se-text-fg2 mono" style="text-align: right;">
+    {% if meta.run_completed_at %}{{ meta.run_completed_at }}<br>{% endif %}
+    {% if meta.model %}{{ meta.model }}<br>{% endif %}
+    {% if meta.usage %}{{ meta.usage.input_tokens }} in / {{ meta.usage.output_tokens }} out{% endif %}
+  </div>
+</div>
+
+<!-- Tracked CTA + results: connect this content to actual sales -->
+<div class="se-card glow-cyan se-mb-3">
+  <div class="se-flex" style="justify-content: space-between; flex-wrap: wrap; gap: 1.2rem; align-items: flex-start;">
+    <div style="flex: 1; min-width: 300px;">
+      <div class="se-card-label">🔗 Tracked CTA — paste this link in every caption &amp; post</div>
+      <div class="se-flex se-gap-1" style="margin-top: 0.45rem; align-items: center;">
+        <input class="se-input cta-url" value="{{ cta_url }}" readonly style="font-family: 'JetBrains Mono', monospace; font-size: 0.76rem;">
+        <button type="button" class="se-btn primary copy-cta">📋 Copy</button>
+      </div>
+      <div class="se-text-xs se-text-fg2" style="margin-top: 0.5rem;">
+        Campaign <code class="mono">{{ campaign_id }}</code> · capture form
+        <a href="/lead/{{ campaign_id }}" target="_blank" class="se-text-cyan">/lead/{{ campaign_id }}</a>
+      </div>
+    </div>
+    <div style="text-align: right;">
+      <div class="se-card-label">Results</div>
+      <div class="se-flex se-gap-3" style="margin-top: 0.35rem; justify-content: flex-end;">
+        <div><div class="se-card-value cyan mono" style="font-size: 1.5rem;">{{ attribution.clicks }}</div><div class="se-text-xs se-text-fg2">clicks</div></div>
+        <div><div class="se-card-value violet mono" style="font-size: 1.5rem;">{{ attribution.leads }}</div><div class="se-text-xs se-text-fg2">leads</div></div>
+      </div>
+    </div>
+  </div>
+  {% if attribution.clicks == 0 and attribution.leads == 0 %}
+  <div class="se-text-xs se-text-fg2" style="margin-top: 0.7rem; border-top: 1px solid var(--se-line); padding-top: 0.55rem;">
+    Nothing tracked for this campaign yet — clicks fill in from your manual-metrics CSV, leads from the capture form, both matched on <code class="mono">utm_campaign={{ campaign_id }}</code>.
+  </div>
+  {% endif %}
+</div>
+
+<!-- Section tabs -->
+<div class="file-tabs">
+  {% if long_form %}
+    <a href="#long-form" class="file-tab"><span class="mono se-text-sm">full video</span></a>
+  {% endif %}
+  {% if clips %}
+    <a href="#clips" class="file-tab"><span class="mono se-text-sm">🎬 clips ({{ clips|length }})</span></a>
+  {% endif %}
+  {% for f in files %}
+    {% if not f.name.startswith('00-') %}
+      <a href="#{{ f.name }}" class="file-tab" data-target="{{ f.name }}">
+        <span class="mono se-text-sm">{{ f.name }}</span>
+      </a>
+    {% endif %}
+  {% endfor %}
+  <div class="se-spacer"></div>
+  {% for f in files %}
+    {% if f.name == '00-source.txt' or f.name == '00-source.srt' %}
+      <a href="#{{ f.name }}" class="file-tab subtle" data-target="{{ f.name }}">
+        <span class="mono se-text-sm">{{ f.name }}</span>
+      </a>
+    {% endif %}
+  {% endfor %}
+</div>
+
+{% if long_form and long_form.distribution.youtube %}
+<!-- ============================================================ -->
+<!-- Long-form YouTube kit                                        -->
+<!-- ============================================================ -->
+<h2 id="long-form" style="font-size: 1.1rem; font-weight: 700; color: var(--se-cyan); letter-spacing: 0.02em; margin: 0 0 1rem 0;">
+  Full video for YouTube
+</h2>
+{% set kit = long_form.distribution.youtube %}
+<div class="se-card glow-cyan se-mb-3">
+  <div class="se-flex" style="justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
+    <div>
+      <div class="se-card-label">Long-form upload kit</div>
+      <div class="se-text-xs se-text-fg2 se-mt-1">
+        Original source video{% if long_form.duration_sec %} - {{ '%.1f'|format(long_form.duration_sec) }}s{% endif %}
+        {% if kit.website_url %} - <span class="mono">{{ kit.website_url }}</span>{% endif %}
+      </div>
+    </div>
+    {% if kit.uploaded_at and kit.platform_url %}
+      <a href="{{ kit.platform_url }}" target="_blank" class="se-btn">Open on YouTube</a>
+    {% endif %}
+  </div>
+
+  <div class="se-card-label se-mt-2">Title <span class="se-text-xs se-text-fg2" style="font-weight:400;">editable</span></div>
+  <input type="text" class="dist-title-edit" id="ttl-0-youtube" value="{{ kit.title }}" spellcheck="false">
+
+  <div class="se-card-label se-mt-2">Description</div>
+  <textarea class="dist-caption" id="cap-0-youtube" spellcheck="false">{{ kit.caption }}</textarea>
+
+  <div class="se-flex se-gap-1 se-mt-2" style="justify-content: space-between; flex-wrap: wrap;">
+    <div class="se-flex se-gap-1" style="flex-wrap: wrap;">
+      <button type="button" class="se-btn copy-cap-btn" data-target="cap-0-youtube">Copy description</button>
+      <button type="button" class="se-btn save-kit-btn" data-clip="0" data-platform="youtube"
+              data-action="/content/{{ slug }}/clip/0/kit/youtube/save">Save</button>
+      {% if yt_status.connected %}
+        <form class="yt-upload-form se-flex se-gap-1" data-clip="0"
+              data-action="/content/{{ slug }}/clip/0/upload-youtube"
+              style="margin: 0; display: inline-flex; align-items: center;">
+          <select name="privacy" class="se-input yt-privacy" style="width: auto; margin: 0; padding: 0.4rem 0.5rem; font-size: 0.78rem;">
+            <option value="unlisted" selected>unlisted</option>
+            <option value="public">public</option>
+            <option value="private">private</option>
+          </select>
+          <button type="submit" class="se-btn primary">Upload full video to YouTube</button>
+        </form>
+      {% else %}
+        <a href="/youtube" class="se-btn" title="Set up YouTube auto-upload">Connect YouTube to enable</a>
+      {% endif %}
+    </div>
+    <div class="se-text-xs se-text-fg2">
+      kit: <span class="mono">{{ kit.rel }}</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if clips %}
+<!-- ============================================================ -->
+<!-- Clips + per-platform distribution kits                       -->
+<!-- ============================================================ -->
+<h2 id="clips" style="font-size: 1.1rem; font-weight: 700; color: var(--se-cyan); letter-spacing: 0.02em; margin: 0 0 1rem 0;">
+  Shorts clips ({{ clips|length }})
+</h2>
+
+{% for c in clips %}
+<div class="clip-row" id="clip-{{ c.index }}">
+  <div class="clip-grid">
+    <!-- Video preview -->
+    <div class="clip-video">
+      <video controls preload="metadata" src="{{ c.clip_url }}"></video>
+      <div class="clip-meta">
+        <span class="mono se-text-cyan">#{{ '%02d'|format(c.index) }}</span>
+        · <span class="mono">{{ c.start }} → {{ c.end }}</span>
+        · <span class="mono">{{ '%.1f'|format(c.duration_sec) }}s</span>
+      </div>
+      <div class="clip-title">{{ c.title }}</div>
+      <a href="{{ c.clip_url }}" download class="se-btn se-mt-1" style="font-size: 0.75rem;">
+        ⬇ Download mp4
+      </a>
+    </div>
+
+    <!-- Distribution kit (per-platform tabs) -->
+    <div class="clip-dist" x-data="{ active: 'youtube' }">
+      <!-- Distribution scorecard -->
+      <div class="clip-scorecard" data-clip="{{ c.index }}">
+        <div class="sc-head">
+          <span class="sc-count">{{ c.distributed }}/{{ c.channels_total }} distributed</span>
+          <span class="sc-hint">YT &amp; TikTok tick on upload · click X / LinkedIn / IG when you post them</span>
+        </div>
+        <div class="sc-bar"><div class="sc-fill" style="width: {{ c.pct }}%;"></div></div>
+        <div class="sc-chips">
+          {% for s in c.scorecard %}
+            {% if s.auto %}
+            <span class="sc-chip {% if s.done %}done{% endif %}" title="{{ s.label }} — {% if s.done %}uploaded{% else %}use the upload button below{% endif %}">
+              <span class="sc-label">{{ s.label }}</span><span class="sc-tick">{{ '✓' if s.done else '○' }}</span>
+            </span>
+            {% else %}
+            <button type="button" class="sc-chip mark-btn {% if s.done %}done{% endif %}"
+                    data-action="/content/{{ slug }}/clip/{{ c.index }}/mark-posted" data-channel="{{ s.channel }}"
+                    title="Click when you've posted this clip to {{ s.label }}">
+              <span class="sc-label">{{ s.label }}</span><span class="sc-tick">{{ '✓' if s.done else '○' }}</span>
+            </button>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="dist-tabs">
+        {% for platform in ['youtube', 'tiktok', 'instagram', 'rumble'] %}
+          {% if platform in c.distribution %}
+            <button type="button" class="dist-tab platform-{{ platform }}"
+                    data-clip="{{ c.index }}" data-platform="{{ platform }}">
+              {% if platform == 'youtube' %}▶ YouTube
+              {% elif platform == 'tiktok' %}♪ TikTok
+              {% elif platform == 'instagram' %}◌ Instagram
+              {% elif platform == 'rumble' %}R Rumble
+              {% endif %}
+              {% if c.distribution[platform].uploaded_at %}<span class="upload-dot">●</span>{% endif %}
+            </button>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      {% for platform, kit in c.distribution.items() %}
+      <div class="dist-pane" id="dist-{{ c.index }}-{{ platform }}"
+           {% if platform != 'youtube' %}style="display: none;"{% endif %}>
+
+        {% if kit.uploaded_at and kit.platform_url %}
+        <div class="se-card glow-violet" style="padding: 0.7rem 0.9rem; margin-bottom: 0.8rem;">
+          <div class="se-flex se-gap-2" style="justify-content: space-between; align-items: center;">
+            <div>
+              <div class="se-text-xs" style="color: var(--se-green);">✓ Uploaded</div>
+              <div class="mono se-text-xs se-text-fg2 se-mt-1">{{ kit.uploaded_at }}</div>
+            </div>
+            <a href="{{ kit.platform_url }}" target="_blank" class="se-btn">↗ Open on {{ platform }}</a>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="se-card-label">Title <span class="se-text-xs se-text-fg2" style="font-weight:400;">— editable</span></div>
+        <input type="text" class="dist-title-edit" id="ttl-{{ c.index }}-{{ platform }}" value="{{ kit.title }}" spellcheck="false">
+
+        <div class="se-card-label se-mt-2">Caption</div>
+        <textarea class="dist-caption" id="cap-{{ c.index }}-{{ platform }}" spellcheck="false">{{ kit.caption }}</textarea>
+
+        <div class="se-flex se-gap-1 se-mt-2" style="justify-content: space-between; flex-wrap: wrap;">
+          <div class="se-flex se-gap-1" style="flex-wrap: wrap;">
+            <button type="button" class="se-btn copy-cap-btn" data-target="cap-{{ c.index }}-{{ platform }}">
+              📋 Copy caption
+            </button>
+            <button type="button" class="se-btn save-kit-btn" data-clip="{{ c.index }}" data-platform="{{ platform }}"
+                    data-action="/content/{{ slug }}/clip/{{ c.index }}/kit/{{ platform }}/save">
+              💾 Save
+            </button>
+            {% if platform == 'youtube' %}
+              {% if yt_status.connected %}
+                <form class="yt-upload-form se-flex se-gap-1" data-clip="{{ c.index }}"
+                      data-action="/content/{{ slug }}/clip/{{ c.index }}/upload-youtube"
+                      style="margin: 0; display: inline-flex; align-items: center;">
+                  <select name="privacy" class="se-input yt-privacy" style="width: auto; margin: 0; padding: 0.4rem 0.5rem; font-size: 0.78rem;">
+                    <option value="unlisted" selected>unlisted</option>
+                    <option value="public">public</option>
+                    <option value="private">private</option>
+                  </select>
+                  <button type="submit" class="se-btn primary">⏏ Upload to YouTube</button>
+                </form>
+              {% else %}
+                <a href="/youtube" class="se-btn" title="Set up YouTube auto-upload">
+                  🔌 Connect YouTube to enable
+                </a>
+              {% endif %}
+            {% elif platform == 'tiktok' %}
+              {% if kit.published_at %}
+                <span class="se-btn" style="opacity: 0.75; pointer-events: none;">✓ Published to TikTok</span>
+              {% elif kit.uploaded_at %}
+                <span class="se-btn" style="opacity: 0.75; pointer-events: none;">✓ In your TikTok drafts</span>
+              {% elif tt_connected %}
+                <button type="button" class="se-btn primary tt-publish-btn"
+                        data-action="/content/{{ slug }}/clip/{{ c.index }}/publish-tiktok">
+                  ♪ Publish to TikTok
+                </button>
+                <button type="button" class="se-btn tt-upload-btn"
+                        data-action="/content/{{ slug }}/clip/{{ c.index }}/upload-tiktok">
+                  → Send to drafts instead
+                </button>
+              {% else %}
+                <a href="/tiktok" class="se-btn" title="Connect TikTok to enable publishing">
+                  🔌 Connect TikTok to enable
+                </a>
+              {% endif %}
+            {% elif platform == 'rumble' %}
+              <a href="https://rumble.com/upload.php" target="_blank" class="se-btn">
+                ↗ Open Rumble upload
+              </a>
+            {% else %}
+              <a href="https://www.instagram.com" target="_blank" class="se-btn"
+                 title="Manual upload for now (Instagram Reels API possible later)">
+                ↗ Open {{ platform }}
+              </a>
+            {% endif %}
+          </div>
+          <div class="se-text-xs se-text-fg2">
+            kit: <span class="mono">{{ kit.rel }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<div class="divider"></div>
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- Markdown drafts                                              -->
+<!-- ============================================================ -->
+<h2 style="font-size: 1.1rem; font-weight: 700; color: var(--se-violet); letter-spacing: 0.02em; margin: 1.5rem 0 1rem 0;">
+  Drafts
+</h2>
+
+{% for f in files %}
+<div class="content-block" id="{{ f.name }}">
+  <div class="content-block-head">
+    <div class="mono se-text-cyan" style="font-size: 0.95rem; font-weight: 600;">{{ f.name }}</div>
+    <div class="se-flex se-gap-1">
+      <button type="button" class="se-btn copy-btn" data-target="ta-{{ loop.index }}">📋 Copy</button>
+      <button type="button" class="se-btn toggle-btn" data-target="block-{{ loop.index }}">
+        <span class="toggle-label">Edit</span>
+      </button>
+    </div>
+  </div>
+
+  {% if f.ext == '.md' %}
+  <div id="block-{{ loop.index }}-rendered" class="rendered-pane">
+    <pre class="render-md hidden-source">{{ f.content }}</pre>
+    <div class="render-md">{{ f.content }}</div>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/content/{{ slug }}/save" id="block-{{ loop.index }}-edit"
+        class="edit-pane" style="{% if f.ext == '.md' %}display: none;{% endif %}">
+    <input type="hidden" name="filename" value="{{ f.name }}" />
+    <textarea id="ta-{{ loop.index }}" class="se-editor" name="content" spellcheck="false">{{ f.content }}</textarea>
+    <div class="se-flex se-gap-1 se-mt-1" style="justify-content: flex-end;">
+      <button type="submit" class="se-btn primary">💾 Save</button>
+    </div>
+  </form>
+</div>
+{% endfor %}
+
+<style>
+  .file-tabs {
+    display: flex; gap: 0.4rem; margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--se-line); padding-bottom: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .file-tab {
+    padding: 0.4rem 0.8rem; border-radius: 6px;
+    background: var(--se-bg-2); border: 1px solid var(--se-line);
+    color: var(--se-fg-1); text-decoration: none;
+    transition: all 120ms ease;
+  }
+  .file-tab:hover { border-color: var(--se-cyan); color: var(--se-cyan); }
+  .file-tab.subtle { opacity: 0.5; }
+
+  .clip-row {
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--se-line);
+    border-radius: 10px;
+    background: var(--se-bg-1);
+    overflow: hidden;
+  }
+  .clip-grid {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 0;
+  }
+  @media (max-width: 1100px) {
+    .clip-grid { grid-template-columns: 1fr; }
+  }
+  .clip-video {
+    padding: 1rem;
+    background: linear-gradient(180deg, var(--se-bg-2) 0%, var(--se-bg-1) 100%);
+    border-right: 1px solid var(--se-line);
+  }
+  .clip-video video {
+    width: 100%;
+    border-radius: 6px;
+    background: black;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+  }
+  .clip-meta {
+    margin-top: 0.6rem;
+    font-size: 0.78rem;
+    color: var(--se-fg-2);
+  }
+  .clip-title {
+    margin-top: 0.4rem;
+    font-weight: 600;
+    color: var(--se-fg-0);
+    font-size: 0.92rem;
+  }
+
+  .clip-dist {
+    padding: 1rem 1.1rem;
+  }
+  .clip-scorecard { margin-bottom: 0.85rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--se-line); }
+  .sc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+  .sc-count { font-size: 0.8rem; font-weight: 700; color: var(--se-fg-0); }
+  .sc-hint { font-size: 0.62rem; color: var(--se-fg-2); }
+  .sc-bar { height: 5px; background: var(--se-bg-2); border-radius: 999px; overflow: hidden; margin: 0.4rem 0 0.6rem; }
+  .sc-fill { height: 100%; background: linear-gradient(90deg, var(--se-cyan), #4ade80); transition: width 250ms ease; }
+  .sc-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .sc-chip {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    font-size: 0.72rem; font-weight: 600;
+    padding: 0.25rem 0.55rem; border-radius: 999px;
+    background: var(--se-bg-2); border: 1px solid var(--se-line); color: var(--se-fg-2);
+  }
+  button.sc-chip { cursor: pointer; transition: all 120ms ease; }
+  button.sc-chip:hover { border-color: var(--se-cyan); color: var(--se-fg-0); }
+  .sc-chip.done { color: #4ade80; border-color: rgba(74, 222, 128, 0.4); background: rgba(74, 222, 128, 0.1); }
+  .sc-chip .sc-tick { font-size: 0.72rem; }
+
+  .dist-tabs {
+    display: flex;
+    gap: 0.3rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--se-line);
+    padding-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .dist-tab {
+    padding: 0.4rem 0.7rem;
+    background: var(--se-bg-2);
+    border: 1px solid var(--se-line);
+    border-radius: 6px;
+    color: var(--se-fg-1);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 120ms ease;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .dist-tab:hover { border-color: var(--se-cyan); }
+  .dist-tab.active {
+    background: linear-gradient(90deg, rgba(34,211,238,0.15), rgba(167,139,250,0.15));
+    border-color: var(--se-cyan);
+    color: var(--se-fg-0);
+  }
+  .upload-dot { color: var(--se-green); font-size: 0.6rem; }
+
+  .dist-title {
+    background: var(--se-bg-2);
+    border: 1px solid var(--se-line);
+    border-radius: 6px;
+    padding: 0.55rem 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--se-fg-0);
+    margin-top: 0.3rem;
+  }
+  .dist-title-edit {
+    width: 100%; margin-top: 0.3rem;
+    background: var(--se-bg-2); border: 1px solid var(--se-line); border-radius: 6px;
+    padding: 0.55rem 0.75rem;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+    color: var(--se-fg-0); outline: none;
+  }
+  .dist-title-edit:focus { border-color: var(--se-cyan); box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12); }
+  .dist-caption {
+    width: 100%;
+    min-height: 140px;
+    margin-top: 0.3rem;
+    background: var(--se-bg-1);
+    border: 1px solid var(--se-line);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    color: var(--se-fg-0);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+  }
+  .dist-caption:focus {
+    border-color: var(--se-cyan);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--se-line);
+    margin: 2rem 0;
+  }
+
+  .content-block { margin-bottom: 1.5rem; scroll-margin-top: 1rem; }
+  .content-block-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.6rem 0.85rem;
+    background: var(--se-bg-1); border: 1px solid var(--se-line);
+    border-bottom: none; border-radius: 8px 8px 0 0;
+  }
+  .rendered-pane > .se-md, .rendered-pane > .render-md {
+    border-top-left-radius: 0; border-top-right-radius: 0;
+  }
+  .hidden-source { display: none; }
+  .edit-pane .se-editor { border-top-left-radius: 0; border-top-right-radius: 0; }
+</style>
+
+<script>
+  // Distribution platform tab switching
+  document.querySelectorAll('.dist-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const clip = btn.dataset.clip;
+      const platform = btn.dataset.platform;
+      // Hide all panes for this clip
+      document.querySelectorAll(`[id^="dist-${clip}-"]`).forEach(p => p.style.display = 'none');
+      document.getElementById(`dist-${clip}-${platform}`).style.display = '';
+      // Toggle active class on tabs
+      btn.parentElement.querySelectorAll('.dist-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+  // Mark first dist tab active for each clip
+  document.querySelectorAll('.dist-tabs').forEach(group => {
+    const first = group.querySelector('.dist-tab');
+    if (first) first.classList.add('active');
+  });
+
+  // Copy buttons (drafts)
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const ta = document.getElementById(btn.dataset.target);
+      try {
+        await navigator.clipboard.writeText(ta.value);
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✓ Copied';
+        setTimeout(() => { btn.innerHTML = orig; }, 1200);
+      } catch (err) { alert('Copy failed: ' + err.message); }
+    });
+  });
+
+  // Copy buttons (captions)
+  document.querySelectorAll('.copy-cap-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const ta = document.getElementById(btn.dataset.target);
+      try {
+        await navigator.clipboard.writeText(ta.value);
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✓ Copied';
+        setTimeout(() => { btn.innerHTML = orig; }, 1200);
+      } catch (err) { alert('Copy failed: ' + err.message); }
+    });
+  });
+
+  // Toggle render <-> edit
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = btn.dataset.target;
+      const rendered = document.getElementById(id + '-rendered');
+      const edit = document.getElementById(id + '-edit');
+      const label = btn.querySelector('.toggle-label');
+      if (!rendered) return;
+      if (rendered.style.display === 'none') {
+        rendered.style.display = ''; edit.style.display = 'none'; label.textContent = 'Edit';
+      } else {
+        rendered.style.display = 'none'; edit.style.display = ''; label.textContent = 'Render';
+      }
+    });
+  });
+
+  // Save an edited distribution-kit title + caption to disk
+  document.querySelectorAll('.save-kit-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const clip = btn.dataset.clip, platform = btn.dataset.platform;
+      const title = document.getElementById(`ttl-${clip}-${platform}`)?.value || '';
+      const caption = document.getElementById(`cap-${clip}-${platform}`)?.value || '';
+      const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const fd = new FormData(); fd.append('title', title); fd.append('caption', caption);
+        const res = await fetch(btn.dataset.action, { method: 'POST', body: fd });
+        const data = await res.json();
+        btn.textContent = data.ok ? '✓ Saved' : 'Save failed';
+      } catch (e) { btn.textContent = 'Save failed'; }
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1400);
+    });
+  });
+
+  // YouTube upload — persist the edited title + caption, then upload with the edited title.
+  document.querySelectorAll('.yt-upload-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const clipIdx = form.dataset.clip;
+      const action = form.dataset.action;
+      const privacy = form.querySelector('.yt-privacy')?.value || 'unlisted';
+      const titleEl = document.getElementById(`ttl-${clipIdx}-youtube`);
+      const title = titleEl ? titleEl.value.trim() : '';
+      const captionEl = document.getElementById(`cap-${clipIdx}-youtube`);
+      const caption = captionEl ? captionEl.value : '';
+      if (!confirm(`Upload clip ${clipIdx} to YouTube as ${privacy}?`)) return;
+
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      const orig = submitBtn.textContent;
+      submitBtn.textContent = 'Starting...';
+
+      try {
+        // Persist the (possibly edited) title + caption so the upload uses them.
+        try {
+          const sfd = new FormData(); sfd.append('title', title); sfd.append('caption', caption);
+          await fetch(action.replace(/\/upload-youtube$/, '/kit/youtube/save'), { method: 'POST', body: sfd });
+        } catch (_) {}
+
+        const fd = new FormData();
+        fd.append('privacy', privacy);
+        fd.append('title', title);
+        const res = await fetch(action, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.ok && data.redirect) {
+          location.href = data.redirect;
+        } else {
+          alert('Upload failed: ' + (data.error || 'unknown'));
+          submitBtn.disabled = false;
+          submitBtn.textContent = orig;
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = orig;
+      }
+    });
+  });
+
+  // TikTok — push this clip straight to drafts (synchronous; no public URL)
+  document.querySelectorAll('.tt-upload-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Upload this clip to your TikTok drafts?')) return;
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Uploading…';
+      try {
+        const res = await fetch(btn.dataset.action, { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          btn.textContent = '✓ In your TikTok drafts';
+          btn.classList.remove('primary');
+          alert(data.message || 'Uploaded to your TikTok drafts.');
+        } else {
+          alert('TikTok upload failed: ' + (data.error || 'unknown'));
+          btn.disabled = false; btn.textContent = orig;
+        }
+      } catch (e) {
+        alert('Network error: ' + e.message);
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
+  });
+
+  // TikTok — publish this clip PUBLICLY (Direct Post). Human-gated: explicit confirm.
+  document.querySelectorAll('.tt-publish-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Publish this clip PUBLICLY to your TikTok now? It will appear on your profile.')) return;
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Publishing…';
+      try {
+        const res = await fetch(btn.dataset.action, { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          btn.textContent = '✓ Published to TikTok';
+          btn.classList.remove('primary');
+          const draft = btn.parentElement.querySelector('.tt-upload-btn');
+          if (draft) draft.style.display = 'none';
+          alert(data.message || 'Publishing to TikTok.');
+        } else {
+          alert('TikTok publish failed: ' + (data.error || 'unknown'));
+          btn.disabled = false; btn.textContent = orig;
+        }
+      } catch (e) {
+        alert('Network error: ' + e.message);
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
+  });
+
+  // Copy the tracked CTA link
+  document.querySelectorAll('.copy-cta').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const inp = btn.parentElement.querySelector('.cta-url');
+      try {
+        await navigator.clipboard.writeText(inp.value);
+        const o = btn.textContent; btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = o; }, 1200);
+      } catch (e) { inp.select(); document.execCommand('copy'); }
+    });
+  });
+
+  // Distribution scorecard — toggle manual channels (X / LinkedIn / Instagram)
+  function updateScorecard(sc) {
+    if (!sc) return;
+    const chips = sc.querySelectorAll('.sc-chip');
+    const done = sc.querySelectorAll('.sc-chip.done').length;
+    const fill = sc.querySelector('.sc-fill');
+    if (fill) fill.style.width = (chips.length ? done / chips.length * 100 : 0) + '%';
+    const count = sc.querySelector('.sc-count');
+    if (count) count.textContent = done + '/' + chips.length + ' distributed';
+  }
+  document.querySelectorAll('.mark-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const fd = new FormData(); fd.append('channel', btn.dataset.channel);
+      btn.disabled = true;
+      try {
+        const res = await fetch(btn.dataset.action, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.ok) {
+          btn.classList.toggle('done', data.posted);
+          const tick = btn.querySelector('.sc-tick');
+          if (tick) tick.textContent = data.posted ? '✓' : '○';
+          updateScorecard(btn.closest('.clip-scorecard'));
+        } else { alert(data.error || 'Failed to update'); }
+      } catch (e) { alert('Network error: ' + e.message); }
+      btn.disabled = false;
+    });
+  });
+</script>
+{% endblock %}

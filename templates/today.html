@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Today's Ops · Shadow Edge Ops{% endblock %}
+
+{% block content %}
+<div class="se-flex se-gap-2 se-mb-3" style="justify-content: space-between; align-items: flex-end;">
+  <div>
+    <h1 class="se-h1">Daily Ops</h1>
+    <div class="se-sub">Your AI control panel · viewing <span class="mono">{{ date }}</span></div>
+  </div>
+  <form method="get" action="/today" class="se-flex se-gap-1">
+    <select name="d" class="se-btn" style="background: var(--se-bg-1);" onchange="this.form.submit()">
+      {% if date not in available %}
+        <option value="{{ date }}" selected>{{ date }} (no file)</option>
+      {% endif %}
+      {% for d in available %}
+        <option value="{{ d }}" {% if d == date %}selected{% endif %}>{{ d }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+{% if msg %}
+  <div class="se-card" style="margin-bottom: 1rem; border-left: 3px solid #34d399;">✅ {{ msg }}</div>
+{% endif %}
+{% if err %}
+  <div class="se-card glow-amber" style="margin-bottom: 1rem;">⚠ {{ err }}</div>
+{% endif %}
+
+{% if is_today %}
+<div class="se-card" style="margin-bottom: 1rem;">
+  <div class="se-card-label">Actions — AI does the work, you approve</div>
+  <div class="se-flex se-gap-1" style="flex-wrap: wrap; margin-top: 0.6rem;">
+    <form method="post" action="/today/video-script" style="margin: 0;">
+      <button class="se-btn primary" type="submit">🎬 Generate next-video script</button>
+    </form>
+    <form method="post" action="/today/scan" style="margin: 0;">
+      <button class="se-btn" type="submit">🎧 Run listening scan</button>
+    </form>
+    {% if partner %}
+    <form method="post" action="/today/partner-done" style="margin: 0;">
+      <input type="hidden" name="name" value="{{ partner.name }}">
+      <button class="se-btn" type="submit">✉ Mark {{ partner.name }} emailed</button>
+    </form>
+    {% endif %}
+    <a class="se-btn" href="/engagement">💬 Engagement{% if outreach and outreach.work_pending %} ({{ outreach.work_pending }}){% endif %}</a>
+    <form method="post" action="/today/generate" style="margin: 0;">
+      <button class="se-btn" type="submit">🔄 Regenerate brief</button>
+    </form>
+  </div>
+  <div class="se-text-xs se-text-fg2" style="margin-top: 0.5rem;">
+    Script generation calls the LLM (a few seconds). Scans run in the background — drafted replies land in Engagement for your review before anything is posted.
+  </div>
+</div>
+<div id="scan-progress" style="margin-bottom: 1rem;"></div>
+{% endif %}
+
+{% if is_today %}
+<div class="se-card" style="margin-bottom: 1rem;">
+  <div class="se-flex" style="justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
+    <div class="se-card-label">📣 Today's posts{% if social_posts %} · {{ posts_pending }} to post{% endif %}{% if post_streak %} · 🔥 {{ post_streak }}-day streak{% endif %}</div>
+    <form method="post" action="/today/generate-posts" style="margin: 0; display:flex; gap:0.5rem; align-items:flex-start; flex-wrap:wrap; justify-content:flex-end;" data-post-regen-form>
+      <textarea
+        id="daily-post-guidance"
+        name="post_guidance"
+        class="se-input"
+        rows="2"
+        maxlength="2000"
+        placeholder="Optional: hype Drawdown Guardian lockouts, Bracket Boss scale-outs, discipline score, funded-account risk..."
+        style="min-width:min(520px, 100%); width:min(520px, 64vw); resize:vertical;"
+      ></textarea>
+      <button class="se-btn{% if not social_posts %} primary{% endif %}" type="submit">{% if social_posts %}↻ Regenerate pending{% else %}✨ Generate today's posts{% endif %}</button>
+    </form>
+  </div>
+  {% if social_posts %}
+    {% for p in social_posts %}
+    <div class="se-card" style="margin-top: 0.5rem;{% if p.status in ['posted', 'skipped'] %} opacity: 0.6;{% endif %}">
+      <div style="display:flex; justify-content:space-between; gap:1rem; align-items:baseline;">
+        <strong>{{ p.platform|capitalize }}</strong>
+        <span class="se-text-xs se-text-fg2">{{ p.pillar }}{% if p.status != 'pending' %} · {{ p.status }}{% endif %}</span>
+      </div>
+      {% if p.platform == 'reddit' %}<div class="se-text-xs" style="color:#fbbf24; margin: 0.25rem 0;">⚠ value-first only — no link, no product mention. Pick a fitting subreddit and vary it.</div>{% endif %}
+      <textarea id="post-{{ p.platform }}" readonly rows="4" style="width:100%; margin-top:0.3rem;">{{ p.text }}</textarea>
+      <div class="se-flex se-gap-1" style="margin-top: 0.4rem; flex-wrap:wrap; align-items:center;">
+        <button type="button" class="se-btn" onclick="copyText('post-{{ p.platform }}')">📋 Copy</button>
+        {% if p.status == 'posted' %}
+          <span class="se-text-xs se-text-fg2">✓ posted{% if p.posted_url %} · <a href="{{ p.posted_url }}" target="_blank" rel="noopener">link ↗</a>{% endif %}</span>
+          <form method="post" action="/today/post-done" style="margin:0;"><input type="hidden" name="platform" value="{{ p.platform }}"><button class="se-btn" name="action" value="pending">Undo</button></form>
+        {% elif p.status == 'skipped' %}
+          <span class="se-text-xs se-text-fg2">skipped</span>
+          <form method="post" action="/today/post-done" style="margin:0;"><input type="hidden" name="platform" value="{{ p.platform }}"><button class="se-btn" name="action" value="pending">Undo</button></form>
+        {% else %}
+          <form method="post" action="/today/post-done" style="margin:0; display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
+            <input type="hidden" name="platform" value="{{ p.platform }}">
+            <input class="se-input" name="posted_url" type="url" placeholder="live URL (optional)" style="min-width:200px;">
+            <button class="se-btn primary" name="action" value="posted">✓ Mark posted</button>
+            <button class="se-btn" name="action" value="skipped">Skip</button>
+          </form>
+          <form method="post" action="/today/generate-posts" style="margin:0;" data-post-regen-form><input type="hidden" name="only" value="{{ p.platform }}"><input type="hidden" name="post_guidance" value=""><button class="se-btn" type="submit">↻ Regenerate</button></form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="se-text-sm se-text-fg2" style="margin-top: 0.5rem;">No posts yet today — they auto-generate at 07:00, or click <strong>Generate today's posts</strong>.</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if exists and md %}
+  <div class="render-md">{{ md }}</div>
+{% else %}
+  <div class="se-card glow-amber">
+    <div class="se-card-label">No ops file</div>
+    <div class="se-text-sm" style="margin-top: 0.4rem;">
+      No file at <code>daily-ops/{{ date }}.md</code>.
+    </div>
+    <form method="post" action="/today/generate" style="margin-top: 1rem;">
+      <button class="se-btn primary" type="submit">⚡ Generate today's ops</button>
+    </form>
+  </div>
+{% endif %}
+
+{% if script_md %}
+<div class="se-card" style="margin-top: 1.2rem;">
+  <div class="se-card-label">🎬 Next video script — record this</div>
+  <div class="render-md" style="margin-top: 0.5rem;">{{ script_md }}</div>
+</div>
+{% endif %}
+
+<script>
+function copyText(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.select();
+  el.setSelectionRange(0, 99999);
+  if (navigator.clipboard) { navigator.clipboard.writeText(el.value); }
+  else { document.execCommand('copy'); }
+}
+document.querySelectorAll('[data-post-regen-form]').forEach((form) => {
+  form.addEventListener('submit', () => {
+    const source = document.getElementById('daily-post-guidance');
+    const target = form.querySelector('input[name="post_guidance"]');
+    if (source && target) target.value = source.value;
+    const button = form.querySelector('button[type="submit"]');
+    if (button) {
+      button.dataset.originalText = button.textContent;
+      button.textContent = 'Regenerating...';
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+    }
+  });
+});
+</script>
+<script src="/static/scan-progress.js"></script>
+{% endblock %}

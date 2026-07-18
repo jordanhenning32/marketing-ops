@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}TikTok | Shadow Edge Ops{% endblock %}
+{% block content %}
+<section class="se-page-header">
+  <div>
+    <h1>TikTok</h1>
+    <p class="se-muted">Connect your TikTok account, then push a generated 9:16 clip straight to your TikTok drafts. You review + post it in the app — nothing publishes automatically.</p>
+  </div>
+</section>
+
+{% if msg %}<div class="se-card" style="border-left:3px solid #34d399; margin-bottom:1rem;">✅ {{ msg }}</div>{% endif %}
+{% if err %}<div class="se-card glow-amber" style="margin-bottom:1rem;">⚠ {{ err }}</div>{% endif %}
+
+{% if not status.has_credentials %}
+<div class="se-card glow-amber">
+  <strong>Credentials missing.</strong> Set <code>TIKTOK_CLIENT_KEY</code> and <code>TIKTOK_CLIENT_SECRET</code> in <code>.env</code>, then restart the console.
+</div>
+{% else %}
+
+<div class="se-card">
+  <div class="se-card-label">1 · Connection (Login Kit)</div>
+  {% if status.connected %}
+    <p style="margin:.5rem 0;">✓ <strong>Connected{% if status.display_name %} as {{ status.display_name }}{% endif %}</strong>
+      <span class="se-text-xs se-text-fg2">· scope: {{ status.scope or '—' }}</span></p>
+    <form method="post" action="/tiktok/auth/disconnect" style="margin:0;"><button class="se-btn" type="submit">Disconnect</button></form>
+  {% else %}
+    <p style="margin:.5rem 0;">Not connected.</p>
+    <a class="se-btn primary" href="/tiktok/auth/start">🎵 Connect TikTok</a>
+    <div class="se-text-xs se-text-fg2" style="margin-top:.6rem;">
+      Redirect URI this app uses (must be registered in your TikTok app):<br>
+      <code class="mono">{{ redirect_uri }}</code>
+    </div>
+    <details style="margin-top:.6rem;">
+      <summary class="se-text-sm">Manual code paste (if TikTok redirected you to shadowedgetools.com)</summary>
+      <p class="se-text-xs se-text-fg2" style="margin:.3rem 0;">After authorizing, copy the <strong>entire URL</strong> from your browser's address bar (click the bar, Ctrl+A, Ctrl+C) and paste it below — we'll pull the code out automatically. Pasting just the <code>code</code> value works too.</p>
+      <form method="post" action="/tiktok/auth/paste-code" class="se-flex se-gap-1">
+        <input class="se-input" name="code" placeholder="paste the whole redirected URL (or just the code)" style="min-width:320px;">
+        <button class="se-btn" type="submit">Exchange code</button>
+      </form>
+    </details>
+  {% endif %}
+  {% if status.error %}<div class="se-text-xs" style="color:#fbbf24; margin-top:.5rem;">{{ status.error }}</div>{% endif %}
+</div>
+
+{% if status.connected %}
+<div class="se-card">
+  <div class="se-card-label">2 · Upload a clip to drafts (Content Posting API)</div>
+  {% if clips %}
+  <form method="post" action="/tiktok/upload" class="se-flex se-gap-1" style="margin-top:.6rem; flex-wrap:wrap; align-items:center;">
+    <select name="clip" class="se-input" style="min-width:420px;">
+      {% for c in clips %}
+        <option value="{{ c.path }}">{{ c.run }} / {{ c.name }} ({{ c.size_mb }}MB)</option>
+      {% endfor %}
+    </select>
+    <button class="se-btn primary" type="submit">⬆ Upload to TikTok drafts</button>
+  </form>
+  <div class="se-text-xs se-text-fg2" style="margin-top:.5rem;">It lands in your TikTok <strong>Inbox / Drafts</strong> — open the app to add a sound, finalize the caption, and post.</div>
+  {% else %}
+  <p class="se-text-sm se-text-fg2" style="margin-top:.5rem;">No 9:16 clips found yet. Process a video on the <a href="/content">Content</a> page first.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endif %}
+
+<div class="se-text-xs se-text-fg2" style="margin-top:1rem;">
+  Until the TikTok app is audited, uploads can only go to drafts (private). After audit, this can switch to direct public posting.
+</div>
+{% endblock %}

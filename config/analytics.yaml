@@ -1,0 +1,15 @@
+providers:
+  website:
+    enabled: false
+    source: manual_csv
+  email:
+    enabled: false
+    source: manual_csv
+  social:
+    enabled: false
+    source: manual_csv
+  youtube:
+    enabled: false
+    source: manual_csv
+manual_import:
+  csv_dir: state/manual-metrics

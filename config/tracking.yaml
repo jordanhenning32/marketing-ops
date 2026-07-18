@@ -1,0 +1,22 @@
+canonical_events:
+- conversion
+- email_queued
+- email_sent_manual
+- lead_capture
+- page_view
+- publish_approved
+- publish_manual
+- publish_queued
+- revenue
+required_fields:
+- campaign_id
+- event
+- source
+- timestamp
+utm_schema:
+  utm_source: platform name
+  utm_medium: social|shorts|video|email|partner|organic
+  utm_campaign: campaign id
+  utm_content: asset id
+event_log: state/events.jsonl
+manual_import: state/manual-metrics/*.csv

@@ -1,0 +1,619 @@
+{% extends "base.html" %}
+{% block title %}Affiliates · Shadow Edge Ops{% endblock %}
+
+{% block content %}
+<div class="se-flex se-gap-2 se-mb-3" style="justify-content: space-between; align-items: flex-end;">
+  <div>
+    <h1 class="se-h1">Affiliate Applications</h1>
+    <div class="se-sub">
+      Track every program we apply to. Default checklist is 8 steps —
+      research → eligibility → FTC disclosure → application → approval →
+      link → content → first conversion.
+    </div>
+  </div>
+  <div class="se-flex se-gap-1" style="flex-wrap: wrap;">
+    <a href="/affiliates/discover" class="se-btn">🔭 Discover</a>
+    <button type="button" class="se-btn" id="open-research-form">🔍 Research URL</button>
+    <button type="button" class="se-btn primary" id="open-add-form">+ Add affiliate</button>
+  </div>
+</div>
+
+<!-- Research-from-URL form (hidden) -->
+<div id="research-form-wrap" class="se-card glow-cyan se-mb-3" style="display: none;">
+  <div class="se-flex se-gap-2" style="justify-content: space-between; align-items: baseline;">
+    <div class="se-card-label">Research from URL</div>
+    <button type="button" id="close-research-form" class="se-btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">✕</button>
+  </div>
+  <div class="se-text-xs se-text-fg2 se-mt-1">
+    Paste an affiliate program page. Scout fetches it, extracts commission / cookie / payout / notes, and prefills the Add form.
+  </div>
+  <form id="research-form" class="se-flex se-gap-1 se-mt-2">
+    <input type="url" name="url" id="research-url-input" required class="se-input" placeholder="https://example.com/affiliates" style="margin: 0;" />
+    <button type="submit" class="se-btn primary" id="research-submit-btn">⚡ Research</button>
+  </form>
+  <div id="research-status" class="se-text-xs se-text-fg2 se-mt-2" style="display: none;"></div>
+  <div id="research-result" class="se-mt-2" style="display: none;">
+    <div class="se-card-label">Extraction result</div>
+    <pre id="research-result-pre" class="research-result-pre"></pre>
+    <div class="se-flex se-gap-1 se-mt-1" style="justify-content: flex-end;">
+      <button type="button" id="research-prefill" class="se-btn primary">→ Prefill Add form</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .research-result-pre {
+    background: var(--se-bg-0);
+    border: 1px solid var(--se-line);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--se-fg-1);
+    line-height: 1.5;
+    overflow-x: auto;
+    margin: 0.4rem 0 0 0;
+    white-space: pre-wrap;
+  }
+</style>
+
+<!-- Summary strip -->
+<div class="se-grid cols-4 se-mb-3">
+  <div class="se-card">
+    <div class="se-card-label">Total tracked</div>
+    <div class="se-card-value mono">{{ summary.active }}<span class="se-text-fg2" style="font-size: 1rem; font-weight: 500;">{% if summary.archived %} +{{ summary.archived }} arch{% endif %}</span></div>
+  </div>
+  <div class="se-card glow-cyan">
+    <div class="se-card-label">Checklist progress</div>
+    <div class="se-card-value cyan mono">{{ summary.checklist_done }}<span class="se-text-fg2" style="font-size: 1rem; font-weight: 500;"> / {{ summary.checklist_total }}</span></div>
+    <div class="se-progress se-mt-1"><div class="se-progress-fill" style="width: {{ summary.checklist_pct }}%;"></div></div>
+  </div>
+  <div class="se-card">
+    <div class="se-card-label">Approved / Active</div>
+    <div class="se-card-value violet mono">{{ (summary.by_status.approved or 0) + (summary.by_status.active or 0) }}</div>
+    <div class="se-card-foot">
+      {% if summary.by_status.applied %}{{ summary.by_status.applied }} applied · {% endif %}
+      {% if summary.by_status.researching %}{{ summary.by_status.researching }} researching · {% endif %}
+      {% if summary.by_status.not_started %}{{ summary.by_status.not_started }} not started{% endif %}
+    </div>
+  </div>
+  <div class="se-card">
+    <div class="se-card-label">Filter</div>
+    <div class="se-flex se-gap-1 se-mt-1">
+      <a href="/affiliates" class="se-btn {% if not show_archived %}primary{% endif %}" style="padding: 0.4rem 0.7rem; font-size: 0.78rem;">Active</a>
+      <a href="/affiliates?show_archived=1" class="se-btn {% if show_archived %}primary{% endif %}" style="padding: 0.4rem 0.7rem; font-size: 0.78rem;">All</a>
+    </div>
+  </div>
+</div>
+
+<!-- Add-affiliate form (hidden by default) -->
+<div id="add-form-wrap" class="se-card glow-violet se-mb-3" style="display: none;">
+  <form method="post" action="/affiliates/add">
+    <div class="se-flex se-gap-2" style="justify-content: space-between; align-items: baseline;">
+      <div class="se-card-label">New affiliate application</div>
+      <button type="button" id="close-add-form" class="se-btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">✕</button>
+    </div>
+    <div class="se-grid cols-2 se-mt-2" style="gap: 0.75rem;">
+      <div>
+        <label class="se-card-label">Name *</label>
+        <input type="text" name="name" required class="se-input" placeholder="Apex Trader Funding" />
+      </div>
+      <div>
+        <label class="se-card-label">Affiliate page URL</label>
+        <input type="url" name="url" class="se-input" placeholder="https://..." />
+      </div>
+      <div>
+        <label class="se-card-label">Commission</label>
+        <input type="text" name="commission" class="se-input" placeholder="20% recurring · $50 per signup · etc." />
+      </div>
+      <div>
+        <label class="se-card-label">Cookie (days)</label>
+        <input type="number" name="cookie_days" class="se-input" placeholder="30" min="0" max="3650" />
+      </div>
+      <div>
+        <label class="se-card-label">Contact</label>
+        <input type="text" name="contact" class="se-input" placeholder="affiliates@example.com" />
+      </div>
+      <div>
+        <label class="se-card-label">Priority</label>
+        <select name="priority" class="se-input">
+          <option value="medium" selected>medium</option>
+          <option value="high">high</option>
+          <option value="low">low</option>
+        </select>
+      </div>
+    </div>
+    <div class="se-mt-2">
+      <label class="se-card-label">Notes</label>
+      <textarea name="notes" class="se-input notes-textarea" rows="6" placeholder="optional"></textarea>
+    </div>
+    <div class="se-flex se-gap-1 se-mt-2" style="justify-content: flex-end;">
+      <button type="submit" class="se-btn primary">Create with default checklist</button>
+    </div>
+  </form>
+</div>
+
+<!-- Affiliate cards -->
+{% if not items %}
+<div class="se-card">
+  <div class="se-text-fg2 se-text-sm">
+    No affiliates yet. Click <strong>+ Add affiliate</strong> above to start tracking applications.
+  </div>
+</div>
+{% endif %}
+
+{% for a in items %}
+<div class="aff-card {% if a.archived %}archived{% endif %}" id="a-{{ a.id }}" data-aff-id="{{ a.id }}">
+  <!-- Card header (always visible) -->
+  <div class="aff-head">
+    <div class="aff-head-left">
+      <button type="button" class="aff-toggle" data-target="body-{{ a.id }}" aria-label="Expand">▸</button>
+      <div>
+        <div class="aff-name-row">
+          <strong class="aff-name">{{ a.name }}</strong>
+          <span class="se-pill priority-{{ a.priority }}">{{ a.priority }}</span>
+          <span class="se-pill stage-{{ 'posted' if a.status == 'active' else 'replied' if a.status == 'approved' else 'reached_out' if a.status == 'applied' else 'researched' if a.status == 'researching' else 'declined' if a.status == 'declined' else 'not_started' }}">{{ a.status.replace('_', ' ') }}</span>
+          {% if a.archived %}<span class="se-pill stage-declined">archived</span>{% endif %}
+        </div>
+        {% if a.url %}<a href="{{ a.url }}" target="_blank" class="aff-url se-text-cyan se-text-xs">{{ a.url }}</a>{% endif %}
+      </div>
+    </div>
+    <div class="aff-head-right">
+      <div class="aff-progress-text mono se-text-sm">{{ a.progress()[0] }} / {{ a.progress()[1] }}</div>
+      <div class="aff-progress-bar"><div class="aff-progress-fill" style="width: {{ a.progress_pct() }}%;"></div></div>
+    </div>
+  </div>
+
+  <!-- Body (collapsed by default) -->
+  <div class="aff-body" id="body-{{ a.id }}" style="display: none;">
+
+    <!-- Metadata grid -->
+    <form method="post" action="/affiliates/{{ a.id }}/update" class="aff-meta-form">
+      <div class="se-grid cols-3" style="gap: 0.7rem;">
+        <div>
+          <label class="se-card-label">Status</label>
+          <select name="status" class="se-input">
+            {% for s in valid_statuses %}<option value="{{ s }}" {% if a.status == s %}selected{% endif %}>{{ s.replace('_', ' ') }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="se-card-label">Priority</label>
+          <select name="priority" class="se-input">
+            {% for p in valid_priorities %}<option value="{{ p }}" {% if a.priority == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="se-card-label">Cookie (days)</label>
+          <input type="number" name="cookie_days" class="se-input" value="{{ a.cookie_days if a.cookie_days is not none else '' }}" min="0" max="3650" />
+        </div>
+        <div>
+          <label class="se-card-label">URL</label>
+          <input type="url" name="url" class="se-input" value="{{ a.url }}" />
+        </div>
+        <div>
+          <label class="se-card-label">Commission</label>
+          <input type="text" name="commission" class="se-input" value="{{ a.commission }}" />
+        </div>
+        <div>
+          <label class="se-card-label">Contact</label>
+          <input type="text" name="contact" class="se-input" value="{{ a.contact }}" />
+        </div>
+      </div>
+      <div class="se-mt-2 aff-notes-wrap">
+        <label class="se-card-label">Notes</label>
+        <textarea name="notes" class="se-input notes-textarea" rows="8">{{ a.notes }}</textarea>
+      </div>
+      <div class="se-flex se-gap-1 se-mt-2" style="justify-content: space-between; align-items: center;">
+        <div class="se-text-xs se-text-fg2 mono">
+          created {{ a.created_at[:10] if a.created_at else '—' }} · updated {{ a.updated_at[:10] if a.updated_at else '—' }}
+        </div>
+        <div class="se-flex se-gap-1">
+          {% if a.archived %}
+            <form method="post" action="/affiliates/{{ a.id }}/unarchive" style="margin: 0;">
+              <button type="submit" class="se-btn">↺ Unarchive</button>
+            </form>
+          {% else %}
+            <form method="post" action="/affiliates/{{ a.id }}/archive" style="margin: 0;">
+              <button type="submit" class="se-btn">📥 Archive</button>
+            </form>
+          {% endif %}
+          <button type="submit" class="se-btn primary">💾 Save metadata</button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Checklist -->
+    <div class="aff-checklist se-mt-3">
+      <div class="se-card-label">Checklist</div>
+      <ul class="checklist-list">
+        {% for item in a.checklist %}
+        <li class="checklist-item {% if item.done %}done{% endif %}" data-aff="{{ a.id }}" data-item="{{ item.id }}">
+          <button type="button" class="check-btn" aria-label="Toggle {{ item.label }}">
+            <span class="check-mark">{% if item.done %}✓{% endif %}</span>
+          </button>
+          <span class="check-label">{{ item.label }}</span>
+          <span class="check-meta">
+            {% if item.done and item.done_at %}<span class="mono se-text-xs se-text-fg2">{{ item.done_at[:10] }}</span>{% endif %}
+            <form method="post" action="/affiliates/{{ a.id }}/checklist/{{ item.id }}/remove" style="margin: 0; display: inline;"
+                  onsubmit="return confirm('Remove this checklist item?');">
+              <button type="submit" class="se-btn check-remove" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;" title="Remove">✕</button>
+            </form>
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+
+      <!-- Add custom item -->
+      <form method="post" action="/affiliates/{{ a.id }}/checklist/add" class="se-flex se-gap-1 se-mt-2">
+        <input type="text" name="label" placeholder="Add a custom checklist item..." class="se-input" style="margin: 0;" />
+        <button type="submit" class="se-btn">+ Add step</button>
+      </form>
+    </div>
+
+    <!-- Danger zone -->
+    <details class="aff-danger se-mt-3">
+      <summary>Danger zone</summary>
+      <form method="post" action="/affiliates/{{ a.id }}/delete" class="se-flex se-gap-1 se-mt-1"
+            onsubmit="return confirm('Permanently delete this affiliate? This cannot be undone.');">
+        <input type="text" name="confirm" placeholder="Type DELETE to confirm" class="se-input" style="margin: 0;" />
+        <button type="submit" class="se-btn" style="border-color: rgba(248,113,113,0.4); color: var(--se-red);">Permanently delete</button>
+      </form>
+    </details>
+
+  </div>
+</div>
+{% endfor %}
+
+<style>
+  /* ===== Add form ===== */
+  /* (the form uses .se-input which is already defined globally) */
+
+  /* ===== Affiliate card ===== */
+  .aff-card {
+    border: 1px solid var(--se-line);
+    background: var(--se-bg-1);
+    border-radius: 10px;
+    margin-bottom: 0.75rem;
+    transition: border-color 120ms ease;
+    scroll-margin-top: 1rem;
+  }
+  .aff-card:hover { border-color: rgba(34, 211, 238, 0.3); }
+  .aff-card.archived { opacity: 0.55; }
+
+  .aff-head {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1.5rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+  }
+  .aff-head-left {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    min-width: 0;
+  }
+  .aff-toggle {
+    background: var(--se-bg-2);
+    border: 1px solid var(--se-line);
+    border-radius: 6px;
+    color: var(--se-fg-1);
+    width: 26px; height: 26px;
+    display: grid; place-items: center;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 120ms ease;
+  }
+  .aff-toggle:hover { color: var(--se-cyan); border-color: var(--se-cyan); }
+  .aff-toggle.expanded { transform: rotate(90deg); color: var(--se-cyan); border-color: var(--se-cyan); }
+
+  .aff-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .aff-name { font-size: 0.95rem; color: var(--se-fg-0); }
+  .aff-url {
+    display: block;
+    margin-top: 0.1rem;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 360px;
+  }
+
+  .aff-head-right {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 180px;
+  }
+  .aff-progress-text { color: var(--se-fg-2); }
+  .aff-progress-bar {
+    width: 110px;
+    height: 6px;
+    background: var(--se-bg-2);
+    border: 1px solid var(--se-line);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .aff-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--se-cyan), var(--se-violet));
+    box-shadow: 0 0 8px var(--se-cyan-glow);
+    transition: width 250ms ease;
+  }
+
+  .aff-body {
+    padding: 1rem 1.1rem 1.25rem 1.1rem;
+    border-top: 1px solid var(--se-line);
+    background: linear-gradient(180deg, rgba(34,211,238,0.025) 0%, transparent 100%);
+  }
+
+  /* ===== Checklist ===== */
+  .checklist-list {
+    list-style: none;
+    margin: 0.6rem 0 0 0;
+    padding: 0;
+  }
+  .checklist-item {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.55rem 0.7rem;
+    margin-bottom: 0.3rem;
+    border: 1px solid var(--se-line);
+    border-radius: 7px;
+    background: var(--se-bg-0);
+    transition: all 120ms ease;
+  }
+  .checklist-item:hover { border-color: rgba(34, 211, 238, 0.3); }
+  .checklist-item.done {
+    background: rgba(74, 222, 128, 0.04);
+    border-color: rgba(74, 222, 128, 0.25);
+  }
+  .checklist-item.done .check-label {
+    color: var(--se-fg-2);
+    text-decoration: line-through;
+    text-decoration-color: rgba(108, 116, 147, 0.5);
+  }
+
+  .check-btn {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    border: 1.5px solid var(--se-line);
+    background: var(--se-bg-2);
+    color: var(--se-bg-0);
+    cursor: pointer;
+    display: grid; place-items: center;
+    transition: all 120ms ease;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .check-btn:hover { border-color: var(--se-cyan); }
+  .checklist-item.done .check-btn {
+    background: linear-gradient(135deg, var(--se-cyan), var(--se-violet));
+    border-color: var(--se-cyan);
+    color: var(--se-bg-0);
+    box-shadow: 0 0 8px var(--se-cyan-glow);
+  }
+  .check-mark { line-height: 1; }
+  .check-label { font-size: 0.88rem; color: var(--se-fg-1); }
+  .check-meta { display: flex; align-items: center; gap: 0.5rem; }
+  .check-remove {
+    background: transparent;
+    border: 1px solid var(--se-line);
+    color: var(--se-fg-2);
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .checklist-item:hover .check-remove { opacity: 1; }
+  .check-remove:hover { color: var(--se-red); border-color: rgba(248,113,113,0.4); }
+
+  /* Priority pill colors */
+  .se-pill.priority-high {
+    background: rgba(248, 113, 113, 0.12);
+    color: var(--se-red);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+  }
+  .se-pill.priority-medium {
+    background: rgba(251, 191, 36, 0.12);
+    color: var(--se-amber);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+  }
+  .se-pill.priority-low {
+    background: var(--se-bg-2);
+    color: var(--se-fg-2);
+    border: 1px solid var(--se-line);
+  }
+
+  /* Danger zone */
+  .aff-danger {
+    border-top: 1px dashed var(--se-line);
+    padding-top: 0.85rem;
+    margin-top: 1rem;
+  }
+  .aff-danger summary {
+    cursor: pointer;
+    color: var(--se-fg-2);
+    font-size: 0.78rem;
+    list-style: none;
+    user-select: none;
+  }
+  .aff-danger summary::before { content: '▸ '; color: var(--se-fg-2); }
+  .aff-danger[open] summary::before { content: '▾ '; }
+  .aff-danger summary:hover { color: var(--se-red); }
+
+  textarea.se-input {
+    resize: vertical;
+    line-height: 1.55;
+    min-height: 90px;
+    font-family: 'Inter', sans-serif;
+  }
+  textarea.se-input.notes-textarea {
+    min-height: 180px;
+    font-size: 0.88rem;
+  }
+  /* Force the per-affiliate notes block to span the full body width
+     instead of inheriting any prior column constraint */
+  .aff-notes-wrap { width: 100%; }
+  .aff-notes-wrap textarea { width: 100%; box-sizing: border-box; }
+</style>
+
+<script>
+  // Add-form show/hide
+  const addBtn = document.getElementById('open-add-form');
+  const addWrap = document.getElementById('add-form-wrap');
+  const closeBtn = document.getElementById('close-add-form');
+  if (addBtn && addWrap) {
+    addBtn.addEventListener('click', () => {
+      addWrap.style.display = 'block';
+      addWrap.scrollIntoView({behavior: 'smooth', block: 'center'});
+      addWrap.querySelector('input[name="name"]').focus();
+    });
+    closeBtn.addEventListener('click', () => { addWrap.style.display = 'none'; });
+  }
+
+  // Research-from-URL form
+  const researchBtn = document.getElementById('open-research-form');
+  const researchWrap = document.getElementById('research-form-wrap');
+  const researchClose = document.getElementById('close-research-form');
+  const researchForm = document.getElementById('research-form');
+  const researchStatus = document.getElementById('research-status');
+  const researchResult = document.getElementById('research-result');
+  const researchResultPre = document.getElementById('research-result-pre');
+  const researchPrefillBtn = document.getElementById('research-prefill');
+  const researchSubmitBtn = document.getElementById('research-submit-btn');
+  let lastResearch = null;
+
+  if (researchBtn && researchWrap) {
+    researchBtn.addEventListener('click', () => {
+      researchWrap.style.display = 'block';
+      researchWrap.scrollIntoView({behavior: 'smooth', block: 'center'});
+      document.getElementById('research-url-input').focus();
+    });
+    researchClose.addEventListener('click', () => { researchWrap.style.display = 'none'; });
+
+    researchForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(researchForm);
+      researchSubmitBtn.disabled = true;
+      researchSubmitBtn.textContent = 'Working...';
+      researchStatus.style.display = 'block';
+      researchStatus.textContent = 'Fetching page + extracting (15–30s)...';
+      researchResult.style.display = 'none';
+      try {
+        const res = await fetch('/affiliates/research-url', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!data.ok) {
+          researchStatus.textContent = 'Failed: ' + (data.error || 'unknown');
+          researchStatus.style.color = 'var(--se-red)';
+        } else {
+          lastResearch = data;
+          researchStatus.textContent =
+            'Confidence: ' + (data.extracted_confidence != null ? data.extracted_confidence.toFixed(2) : '?');
+          researchStatus.style.color = 'var(--se-fg-2)';
+          researchResult.style.display = 'block';
+          // Strip excerpt for terser preview
+          const preview = {
+            name: data.name,
+            url: data.url,
+            commission: data.commission,
+            cookie_days: data.cookie_days,
+            payout_method: data.payout_method,
+            minimum_payout: data.minimum_payout,
+            notes: data.notes,
+            confidence: data.extracted_confidence,
+          };
+          researchResultPre.textContent = JSON.stringify(preview, null, 2);
+        }
+      } catch (err) {
+        researchStatus.textContent = 'Network error: ' + err.message;
+        researchStatus.style.color = 'var(--se-red)';
+      } finally {
+        researchSubmitBtn.disabled = false;
+        researchSubmitBtn.textContent = '⚡ Research';
+      }
+    });
+
+    researchPrefillBtn.addEventListener('click', () => {
+      if (!lastResearch) return;
+      // Open the Add form with values prefilled
+      addWrap.style.display = 'block';
+      const f = addWrap.querySelector('form');
+      if (lastResearch.name) f.querySelector('[name="name"]').value = lastResearch.name;
+      if (lastResearch.url) f.querySelector('[name="url"]').value = lastResearch.url;
+      if (lastResearch.commission) f.querySelector('[name="commission"]').value = lastResearch.commission;
+      if (lastResearch.cookie_days != null) f.querySelector('[name="cookie_days"]').value = lastResearch.cookie_days;
+      const noteParts = [];
+      if (lastResearch.payout_method) noteParts.push('Payout: ' + lastResearch.payout_method);
+      if (lastResearch.minimum_payout) noteParts.push('Min payout: ' + lastResearch.minimum_payout);
+      if (lastResearch.notes) noteParts.push(lastResearch.notes);
+      if (noteParts.length) f.querySelector('[name="notes"]').value = noteParts.join('\n');
+      addWrap.scrollIntoView({behavior: 'smooth', block: 'center'});
+      f.querySelector('[name="name"]').focus();
+    });
+  }
+
+  // Card expand/collapse
+  document.querySelectorAll('.aff-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      const open = target.style.display !== 'none';
+      target.style.display = open ? 'none' : 'block';
+      btn.classList.toggle('expanded', !open);
+    });
+  });
+  // Auto-expand if URL hash points to a specific card
+  if (location.hash && location.hash.startsWith('#a-')) {
+    const id = location.hash.slice(3);
+    const body = document.getElementById('body-' + id);
+    const toggle = document.querySelector(`.aff-toggle[data-target="body-${id}"]`);
+    if (body && toggle) {
+      body.style.display = 'block';
+      toggle.classList.add('expanded');
+    }
+  }
+
+  // Inline checklist toggle (optimistic UI)
+  document.querySelectorAll('.checklist-item').forEach(li => {
+    const btn = li.querySelector('.check-btn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const aff = li.dataset.aff;
+      const item = li.dataset.item;
+      const wasDone = li.classList.contains('done');
+      // optimistic
+      li.classList.toggle('done');
+      const mark = li.querySelector('.check-mark');
+      if (mark) mark.textContent = wasDone ? '' : '✓';
+      try {
+        const res = await fetch(`/affiliates/${aff}/check/${item}`, { method: 'POST' });
+        if (!res.ok) throw new Error('server returned ' + res.status);
+        const data = await res.json();
+        // Sync with authoritative state
+        const wantDone = !!data.done;
+        li.classList.toggle('done', wantDone);
+        if (mark) mark.textContent = wantDone ? '✓' : '';
+        // Update card progress
+        const card = li.closest('.aff-card');
+        if (card) {
+          const progressText = card.querySelector('.aff-progress-text');
+          const progressFill = card.querySelector('.aff-progress-fill');
+          if (progressText) progressText.textContent = `${data.progress_done} / ${data.progress_total}`;
+          if (progressFill) progressFill.style.width = data.progress_pct + '%';
+        }
+      } catch (err) {
+        // rollback
+        li.classList.toggle('done', wasDone);
+        if (mark) mark.textContent = wasDone ? '✓' : '';
+        alert('Toggle failed: ' + err.message);
+      }
+    });
+  });
+</script>
+{% endblock %}

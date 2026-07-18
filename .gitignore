@@ -1,0 +1,76 @@
+# Environment & secrets
+.env
+*.env
+.env.local
+.env.*.local
+state/.youtube/
+state/youtube/
+state/.tiktok/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (if any)
+node_modules/
+
+# Large media — raw uploads, audio, and generated clips (never commit binaries)
+content/incoming-videos/
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.m4a
+
+# Local-only backups / archived state snapshots (kept out of git on purpose)
+state/archive/
+*.before-test-cleanup
+*.orig
+
+# Business data + live operational output — kept LOCAL, never public.
+# Real campaigns, production state (leads/performance/sales), and daily
+# briefings stay out of the repo; the pipeline code + config remain tracked.
+content/
+state/
+daily-ops/
+briefings/
+
+# Internal working / strategy docs (business-specific) — kept local.
+CLAUDE.md
+TEST-REPORT.md
+codex-e2e-deep-test.md
+codex-e2e-performance-scoreboard.md
+config/*copy-paste*.md
+config/*goal-prompt*.md
+config/hermes-buildout-prompt.md
+config/brand-voice*.md
+config/codex-*.md
+
+# GA4 service-account key
+state/.ga4/

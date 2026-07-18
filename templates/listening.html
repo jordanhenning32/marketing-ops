@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Listening | Shadow Edge Ops{% endblock %}
+{% block content %}
+<section class="se-page-header">
+  <div>
+    <h1>Listening Radar</h1>
+    <p class="se-muted">Finds traders talking about risk-management topics, scores each as an engagement opportunity, and drafts a value-first reply for your review. Nothing is ever posted automatically.</p>
+  </div>
+</section>
+
+<div id="scan-progress" data-reload-on-done="1" style="margin-bottom:1rem;"></div>
+{% if error %}
+<div class="se-card" style="border-left:3px solid #e53935;">{{ error }}</div>
+{% endif %}
+
+<div class="se-card">
+  <h2 style="margin-top:0;">Run a scan</h2>
+  <form method="post" action="/listening/scan" style="display:flex; gap:.6rem; align-items:center; flex-wrap:wrap;">
+    <label>Source:
+      <select class="se-input" name="source">
+        <option value="">all enabled</option>
+        {% for name, src in sources.items() %}
+          <option value="{{ name }}" {% if not src.get("enabled") %}disabled{% endif %}>
+            {{ name }}{% if not src.get("enabled") %} (disabled){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label><input type="checkbox" name="draft" value="1" checked> draft replies for strong hits</label>
+    <button class="se-btn primary" type="submit">Run scan</button>
+  </form>
+  <p class="se-text-xs se-text-fg2" style="margin-bottom:0;">Scoring + drafting use the LLM router (DeepSeek for triage, Claude for replies) and cost a few API cents per scan. Reddit needs <code>REDDIT_CLIENT_ID/SECRET</code>; Stocktwits works without keys.</p>
+</div>
+
+<div class="se-card">
+  <h2 style="margin-top:0;">Sources</h2>
+  <table class="se-table">
+    <thead><tr><th>Source</th><th>State</th><th>Readiness</th><th>Mode</th></tr></thead>
+    <tbody>
+    {% for name, src in sources.items() %}
+      <tr>
+        <td>{{ name }}</td>
+        <td>{{ "enabled" if src.enabled else "disabled" }}</td>
+        <td>
+          {% set health = source_health.get(name, {}) %}
+          {{ "ready" if health.get("ready") else "not ready" }}
+          {% if health.get("note") %}<br><small class="se-text-fg2">{{ health.get("note") }}</small>{% endif %}
+        </td>
+        <td>{{ "engageable (drafts replies)" if src.get("engageable") else "listen-only" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="se-text-xs se-text-fg2" style="margin-bottom:0;">Watching {{ keywords|length }} keywords. Forums are listen-only (vendor-ban risk); X needs the paid API.</p>
+</div>
+
+{% if last_scan %}
+<div class="se-card">
+  <h2 style="margin-top:0;">Last scan</h2>
+  <p class="se-muted" style="margin-top:0;">{{ last_scan.ran_at }}</p>
+  found {{ last_scan.found }} · new {{ last_scan.new }} · retried {{ last_scan.retried }} ·
+  scored {{ "yes" if last_scan.scored else "no" }} · <strong>drafted {{ last_scan.drafted }}</strong>
+  {% if last_scan.blockers %}
+    <div style="margin-top:.6rem;">
+      <strong>Blockers:</strong>
+      <ul style="margin:.3rem 0;">
+        {% for src, msg in last_scan.blockers.items() %}<li><strong>{{ src }}:</strong> {{ msg }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+  {% if last_scan.source_stats %}
+    <div style="margin-top:.6rem;">
+      <strong>Source diagnostics:</strong>
+      <ul style="margin:.3rem 0;">
+        {% for src, stat in last_scan.source_stats.items() %}
+          <li><strong>{{ src }}:</strong> {{ stat.summary }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="se-card">
+  <h2 style="margin-top:0;">Opportunities
+    {% if queue_counts %}<span class="se-text-xs se-text-fg2">· queue:
+      {% for k, v in queue_counts.items() %}{{ v }} {{ k }}{{ ", " if not loop.last }}{% endfor %}
+      (<a href="/engagement">review →</a>)</span>{% endif %}
+  </h2>
+  <table class="se-table">
+    <thead><tr><th>Score</th><th>Source</th><th>Pain point / angle</th><th>Post</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for o in opportunities %}
+      <tr>
+        <td>{{ "%.2f"|format(o.score|float) if o.score is defined else "—" }}{% if o.recommended %} ✅{% endif %}</td>
+        <td>{{ o.platform_name }}<br><small class="se-text-fg2">{{ o.intent }}</small></td>
+        <td>
+          <strong>{{ o.pain_point or "—" }}</strong>
+          {% if o.angle %}<br><small class="se-text-fg2">{{ o.angle }}</small>{% endif %}
+        </td>
+        <td><small>{{ (o.title or o.excerpt or "")[:140] }}</small><br><a href="{{ o.url }}" target="_blank" rel="noopener">open thread ↗</a></td>
+        <td>{{ o.status }}{% if o.safety_issues %}<br><small class="se-text-fg2">{{ o.safety_issues|join(", ") }}</small>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5">No opportunities yet. Run a scan above (Reddit needs credentials; Stocktwits works now).</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script src="/static/scan-progress.js"></script>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}State Editor · Shadow Edge Ops{% endblock %}
+
+{% block content %}
+<h1 class="se-h1">State Editor</h1>
+<div class="se-sub">Edit any state or config file. Saving re-runs the Ops Tracker so the dashboard reflects your changes.</div>
+
+<div class="se-grid" style="grid-template-columns: 240px 1fr; gap: 1.25rem;">
+  <div>
+    <div class="se-card-label" style="margin-bottom: 0.6rem;">Files</div>
+    <div class="se-flex" style="flex-direction: column; gap: 0.25rem;">
+      {% for f in files %}
+        <a href="/state?file={{ f.rel }}" class="se-nav-item {% if f.rel == current %}active{% endif %}" style="padding: 0.5rem 0.75rem;">
+          <span class="mono se-text-sm">{{ f.label }}</span>
+        </a>
+      {% endfor %}
+    </div>
+    <div class="se-text-xs se-text-fg2 se-mt-2" style="line-height: 1.5;">
+      State files live in <code>state/</code><br>
+      Config files live in <code>config/</code>
+    </div>
+  </div>
+
+  <div>
+    <form method="post" action="/state/save">
+      <input type="hidden" name="rel" value="{{ current }}" />
+      <div class="se-flex se-gap-2 se-mb-2" style="justify-content: space-between; align-items: center;">
+        <div class="mono se-text-sm se-text-cyan">{{ current }}</div>
+        <div class="se-flex se-gap-1">
+          <a href="/state?file={{ current }}" class="se-btn">↻ Discard</a>
+          <button type="submit" class="se-btn primary">💾 Save & re-run ops</button>
+        </div>
+      </div>
+      <textarea class="se-editor" name="content" spellcheck="false">{{ content }}</textarea>
+    </form>
+  </div>
+</div>
+{% endblock %}

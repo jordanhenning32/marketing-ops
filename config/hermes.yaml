@@ -1,0 +1,22 @@
+# Shadow Edge Hermes daily marketing loop configuration
+mode_default: dry_run
+timezone: America/New_York
+live_publish_enabled: false
+live_email_enabled: false
+campaign:
+  default_cta: https://shadowedgetools.com
+  default_lead_magnet: Trader risk-control checklist
+  default_audience: NinjaTrader 8 futures prop traders
+  fallback_theme: Drawdown discipline before order entry
+  fallback_slug: drawdown-discipline
+safety:
+  require_compliance_pass: true
+  append_only_logs: true
+  allow_external_api_calls_in_dry_run: false
+credentials:
+  anthropic: ANTHROPIC_API_KEY
+  youtube_client_secret: YOUTUBE_CLIENT_SECRETS_FILE
+  x_api_key: X_API_KEY
+  stocktwits_token: STOCKTWITS_ACCESS_TOKEN
+  linkedin_token: LINKEDIN_ACCESS_TOKEN
+  tiktok_client_key: TIKTOK_CLIENT_KEY

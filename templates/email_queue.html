@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% block title %}Email Queue | Shadow Edge Ops{% endblock %}
+{% block content %}
+{% set filter_labels = filter_labels|default({"queued": "Queued"}) %}
+{% set summary = summary|default({}) %}
+{% set selected_filter = selected_filter|default("queued") %}
+{% set queue = queue|default([]) %}
+{% set lead_groups = view.lead_groups|default([]) if view is defined else [] %}
+{% set provider = provider|default({}) %}
+{% set blast_recipient_count = blast_recipient_count|default(0) %}
+{% set recent_blasts = recent_blasts|default([]) %}
+<section class="se-page-header">
+  <div>
+    <h1>Email Queue</h1>
+    <p class="se-muted">Queue-only by default. Sending requires explicit provider gates.</p>
+  </div>
+</section>
+
+{% if msg %}
+<div class="se-card" style="border-left:3px solid var(--se-green);">{{ msg }}</div>
+{% endif %}
+{% if err %}
+<div class="se-card" style="border-left:3px solid var(--se-red);">{{ err }}</div>
+{% endif %}
+
+<section class="email-filter-bar" aria-label="Email queue filters">
+  {% for key, label in filter_labels.items() %}
+    <a class="email-filter {% if selected_filter == key %}active{% endif %}" href="/email-queue?filter={{ key }}">
+      <span>{{ label }}</span>
+      <strong>{{ summary.get(key, 0) }}</strong>
+    </a>
+  {% endfor %}
+</section>
+
+{% if summary.get("fixture", 0) %}
+<section class="email-archive-panel">
+  <div>
+    <div class="se-card-label">Fixture Cleanup</div>
+    <h2>{{ summary.get("fixture", 0) }} fixture email rows</h2>
+    <p class="se-muted">Archives example.com/test queue rows without deleting audit history.</p>
+  </div>
+  <form method="post" action="/email-queue/archive-fixtures" class="email-archive-form">
+    <input class="se-input" name="confirm" placeholder="ARCHIVE_FIXTURE_EMAILS">
+    <input class="se-input" name="reason" value="fixture/example.com queue cleanup">
+    <button class="se-btn" type="submit">Archive fixtures</button>
+  </form>
+</section>
+{% endif %}
+
+<section class="email-bulk-panel">
+  <div class="email-bulk-status">
+    <div class="se-card-label">Bulk Email</div>
+    <h2>{{ blast_recipient_count }} opted-in real recipients</h2>
+    <div class="email-provider-grid">
+      <span>Provider <strong>{{ provider.get("provider", "none") }}</strong></span>
+      <span>Adapter <strong>{{ "ready" if provider.get("supported") else "gated" }}</strong></span>
+      <span>Credentials <strong>{{ "present" if provider.get("credential_present") else "missing" }}</strong></span>
+      <span>Live send <strong>{{ "enabled" if provider.get("send_enabled") else "off" }}</strong></span>
+    </div>
+  </div>
+
+  <form method="post" action="/email-queue/capture-bulk" class="email-bulk-form">
+    <div class="se-card-label">Opt-in Capture</div>
+    <textarea class="se-input" name="emails" rows="4" placeholder="name@example.com, second@example.com" required></textarea>
+    <div class="email-form-row">
+      <input class="se-input" name="campaign_id" value="bulk-capture" placeholder="campaign_id">
+      <input class="se-input" name="opt_in_confirm" placeholder="OPTED_IN" required>
+    </div>
+    <button class="se-btn primary" type="submit">Capture opted-in leads</button>
+  </form>
+
+  <form method="post" action="/email-queue/blast/queue" class="email-bulk-form">
+    <div class="se-card-label">Manual Blast</div>
+    <div class="email-form-row">
+      <input class="se-input" name="campaign_id" value="bulk-blast" placeholder="campaign_id" required>
+      <input class="se-input" name="blast_id" placeholder="blast id">
+    </div>
+    <input class="se-input" name="subject" placeholder="Subject" required>
+    <textarea class="se-input" name="body" rows="5" placeholder="Email body" required></textarea>
+    <div class="email-form-row">
+      <input class="se-input" name="confirm" placeholder="QUEUE_BULK_BLAST" required>
+      <label class="email-check"><input type="checkbox" name="include_fixtures" value="1"> Include fixtures</label>
+    </div>
+    <button class="se-btn primary" type="submit">Queue blast</button>
+  </form>
+
+  <div class="email-recent-blasts">
+    <div class="se-card-label">Recent Blasts</div>
+    {% for blast in recent_blasts %}
+      <div class="email-blast-row">
+        <div>
+          <strong>{{ blast.subject or blast.blast_id }}</strong>
+          <div class="se-text-xs se-text-fg2">{{ blast.campaign_id }} / {{ blast.blast_id }} - {{ blast.queued }} queued, {{ blast.sent }} sent, {{ blast.skipped }} skipped</div>
+        </div>
+        <form method="post" action="/email-queue/blast/send" class="email-blast-send">
+          <input type="hidden" name="campaign_id" value="{{ blast.campaign_id }}">
+          <input type="hidden" name="blast_id" value="{{ blast.blast_id }}">
+          <input class="se-input" name="confirm" placeholder="SEND_BULK_BLAST">
+          <button class="se-btn" type="submit">Send gated</button>
+        </form>
+      </div>
+    {% else %}
+      <div class="email-empty compact">No manual blasts queued yet.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="email-workbench">
+  <div class="email-queue-head">
+    <div>
+      <div class="se-card-label">Filtered View</div>
+      <h2>{{ filter_labels[selected_filter] }}</h2>
+    </div>
+    <div class="se-text-xs se-text-fg2">{{ lead_groups|length }} leads - {{ queue|length }} steps</div>
+  </div>
+
+  {% for group in lead_groups %}
+    <section class="email-lead-group">
+      <header class="email-lead-head">
+        <div>
+          <h3>{{ group.email }}</h3>
+          <div class="se-text-xs se-text-fg2">{{ group.campaign_id }}{% if group.is_fixture %} - fixture/test domain{% endif %}</div>
+        </div>
+        <div class="email-lead-metrics">
+          <span>{{ group.queued_count }} queued</span>
+          <span>{{ group.due_now_count }} due</span>
+          <span>{{ group.future_count }} future</span>
+          {% if group.stale_count %}<span>{{ group.stale_count }} stale</span>{% endif %}
+          {% if group.sent_count %}<span>{{ group.sent_count }} sent</span>{% endif %}
+          {% if group.skipped_count %}<span>{{ group.skipped_count }} skipped</span>{% endif %}
+        </div>
+      </header>
+      <div class="email-table-wrap">
+        <table class="se-table email-sequence-table">
+          <thead>
+            <tr><th>Step</th><th>Email</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+          {% for item in group["items"] %}
+            <tr>
+              <td>
+                <strong>{{ item.step_id }}</strong>
+                <div class="se-text-xs se-text-fg2">day {{ item.delay_days }}{% if item.due_at %} - due {{ item.due_at }}{% endif %}</div>
+              </td>
+              <td>
+                <strong>{{ item.subject }}</strong>
+                {% if item.body_preview %}<div class="email-preview">{{ item.body_preview }}</div>{% endif %}
+                {% if item.utm_url %}<a class="se-text-xs" href="{{ item.utm_url }}" target="_blank" rel="noopener">open UTM</a>{% endif %}
+              </td>
+              <td>
+                {{ item.status }}
+                <div class="se-text-xs se-text-fg2">{{ item.provider }}{% if item.is_stale %} - stale{% endif %}</div>
+              </td>
+              <td>
+                <form method="post" action="/email-queue/action" class="email-actions">
+                  <input type="hidden" name="queue_key" value="{{ item.queue_key }}">
+                  <input type="hidden" name="email" value="{{ item.email }}">
+                  <input type="hidden" name="queue_filter" value="{{ selected_filter }}">
+                  <input class="se-input" name="manual_url" placeholder="sent note/URL">
+                  <input class="se-input" name="reason" placeholder="reason">
+                  <button class="se-btn" name="action" value="skip">Skip</button>
+                  <button class="se-btn" name="action" value="mark_sent">Mark manually sent</button>
+                  <button class="se-btn" name="action" value="suppress">Suppress lead</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% else %}
+      {% if queue|length %}
+      <section class="email-lead-group">
+        <header class="email-lead-head">
+          <div>
+            <h3>Ungrouped Email Queue</h3>
+            <div class="se-text-xs se-text-fg2">legacy template context</div>
+          </div>
+        </header>
+        <div class="email-table-wrap">
+          <table class="se-table email-sequence-table">
+            <thead>
+              <tr><th>Step</th><th>Email</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+            {% for item in queue %}
+              <tr>
+                <td>
+                  <strong>{{ item.step_id }}</strong>
+                  <div class="se-text-xs se-text-fg2">day {{ item.delay_days|default(0) }}{% if item.due_at %} - due {{ item.due_at }}{% endif %}</div>
+                </td>
+                <td>
+                  <strong>{{ item.subject }}</strong>
+                  {% if item.body_preview %}<div class="email-preview">{{ item.body_preview }}</div>{% endif %}
+                </td>
+                <td>
+                  {{ item.status|default("queued") }}
+                  <div class="se-text-xs se-text-fg2">{{ item.provider|default("none") }}{% if item.is_stale %} - stale{% endif %}</div>
+                </td>
+                <td>
+                  <form method="post" action="/email-queue/action" class="email-actions">
+                    <input type="hidden" name="queue_key" value="{{ item.queue_key }}">
+                    <input type="hidden" name="email" value="{{ item.email }}">
+                    <input type="hidden" name="queue_filter" value="{{ selected_filter }}">
+                    <input class="se-input" name="manual_url" placeholder="sent note/URL">
+                    <input class="se-input" name="reason" placeholder="reason">
+                    <button class="se-btn" name="action" value="skip">Skip</button>
+                    <button class="se-btn" name="action" value="mark_sent">Mark manually sent</button>
+                    <button class="se-btn" name="action" value="suppress">Suppress lead</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% else %}
+      <div class="email-empty">No email queue entries match this filter.</div>
+      {% endif %}
+    {% endfor %}
+</section>
+
+<style>
+  .email-filter-bar {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin-bottom: 1rem;
+  }
+  .email-filter {
+    border: 1px solid var(--se-line);
+    border-radius: 8px;
+    color: var(--se-fg-1);
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+    padding: 0.7rem 0.8rem;
+    text-decoration: none;
+    background: rgba(15, 23, 42, 0.42);
+  }
+  .email-filter.active {
+    border-color: var(--se-cyan);
+    box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.35);
+  }
+  .email-filter strong {
+    color: var(--se-cyan);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .email-queue-head {
+    align-items: start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+  }
+  .email-queue-head h2 {
+    margin: 0.2rem 0 0;
+  }
+  .email-archive-panel {
+    align-items: start;
+    border: 1px solid var(--se-line);
+    border-radius: 8px;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.35);
+  }
+  .email-archive-panel h2 {
+    margin: 0.2rem 0 0.35rem;
+  }
+  .email-archive-form {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .email-bulk-panel {
+    border: 1px solid var(--se-line);
+    border-radius: 8px;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(220px, 0.85fr) minmax(260px, 1fr) minmax(300px, 1.15fr) minmax(260px, 1fr);
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.35);
+  }
+  .email-bulk-status h2 {
+    font-size: 1.1rem;
+    margin: 0.2rem 0 0.8rem;
+  }
+  .email-provider-grid {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .email-provider-grid span {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    color: var(--se-fg-2);
+    display: flex;
+    font-size: 0.82rem;
+    justify-content: space-between;
+    padding-bottom: 0.35rem;
+  }
+  .email-provider-grid strong {
+    color: var(--se-fg-1);
+    font-weight: 700;
+  }
+  .email-bulk-form,
+  .email-blast-send {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .email-bulk-form textarea.se-input {
+    min-height: 6rem;
+    resize: vertical;
+  }
+  .email-form-row {
+    display: grid;
+    gap: 0.45rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .email-check {
+    align-items: center;
+    border: 1px solid var(--se-line);
+    border-radius: 8px;
+    color: var(--se-fg-2);
+    display: flex;
+    font-size: 0.82rem;
+    gap: 0.45rem;
+    min-height: 2.6rem;
+    padding: 0 0.75rem;
+  }
+  .email-recent-blasts {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .email-blast-row {
+    border: 1px solid var(--se-line);
+    border-radius: 8px;
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.7rem;
+  }
+  .email-blast-row strong {
+    overflow-wrap: anywhere;
+  }
+  .email-workbench {
+    display: grid;
+    gap: 0.85rem;
+  }
+  .email-lead-group {
+    border: 1px solid var(--se-line);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.35);
+    overflow: hidden;
+  }
+  .email-lead-head {
+    align-items: start;
+    border-bottom: 1px solid var(--se-line);
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    padding: 0.9rem 1rem;
+  }
+  .email-lead-head h3 {
+    font-size: 1rem;
+    margin: 0 0 0.25rem;
+    overflow-wrap: anywhere;
+  }
+  .email-lead-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: flex-end;
+  }
+  .email-lead-metrics span {
+    border: 1px solid var(--se-line);
+    border-radius: 999px;
+    color: var(--se-fg-2);
+    font-size: 0.76rem;
+    padding: 0.25rem 0.5rem;
+    white-space: nowrap;
+  }
+  .email-actions {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 13rem;
+  }
+  .email-empty {
+    border: 1px solid var(--se-line);
+    border-radius: 8px;
+    color: var(--se-fg-2);
+    padding: 1rem;
+  }
+  .email-empty.compact {
+    padding: 0.75rem;
+  }
+  .email-preview {
+    color: var(--se-fg-2);
+    font-size: 0.86rem;
+    line-height: 1.45;
+    margin-top: 0.35rem;
+    max-width: 34rem;
+  }
+  .email-table-wrap {
+    overflow-x: auto;
+    width: 100%;
+  }
+  .email-sequence-table th,
+  .email-sequence-table td {
+    vertical-align: top;
+  }
+  @media (max-width: 1100px) {
+    .email-filter-bar {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .email-lead-head {
+      display: grid;
+    }
+    .email-lead-metrics {
+      justify-content: start;
+    }
+    .email-archive-panel {
+      grid-template-columns: 1fr;
+    }
+    .email-bulk-panel {
+      grid-template-columns: 1fr;
+    }
+    .email-form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}

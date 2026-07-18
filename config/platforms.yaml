@@ -1,0 +1,33 @@
+platforms:
+  x:
+    enabled: true
+    publish_mode: manual
+    api_enabled: false
+    credential_env: X_API_KEY
+  stocktwits:
+    enabled: true
+    publish_mode: manual
+    api_enabled: false
+    credential_env: STOCKTWITS_ACCESS_TOKEN
+  tiktok:
+    enabled: true
+    publish_mode: kit
+    api_enabled: false
+    credential_env: TIKTOK_CLIENT_KEY
+  linkedin:
+    enabled: true
+    publish_mode: manual
+    api_enabled: false
+    credential_env: LINKEDIN_ACCESS_TOKEN
+  youtube:
+    enabled: true
+    publish_mode: kit
+    api_enabled: false
+    credential_env: YOUTUBE_CLIENT_SECRETS_FILE
+  email:
+    enabled: true
+    publish_mode: queue
+    api_enabled: false
+    credential_env: EMAIL_PROVIDER_API_KEY
+anti_spam:
+  min_gap_minutes: 60

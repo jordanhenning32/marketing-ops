@@ -1,0 +1,676 @@
+{% extends "base.html" %}
+{% block title %}Content · Shadow Edge Ops{% endblock %}
+
+{% block content %}
+<div class="se-flex se-gap-2 se-mb-2" style="justify-content: space-between; align-items: flex-end;">
+  <div>
+    <h1 class="se-h1">Content Multiplier</h1>
+    <div class="se-sub">
+      Drop a long-form video — auto-transcribe, identify Shorts, cut clips, prep
+      multi-platform distribution kits.
+    </div>
+  </div>
+  <a href="/youtube" class="yt-status-pill {% if yt_status.connected %}connected{% endif %}">
+    {% if yt_status.connected %}
+      <span style="color: var(--se-green);">●</span>
+      <span>YouTube · {{ yt_status.channel_title or 'connected' }}</span>
+    {% elif yt_status.has_client_secret %}
+      <span style="color: var(--se-amber);">●</span>
+      <span>YouTube · click to connect</span>
+    {% else %}
+      <span style="color: var(--se-fg-2);">○</span>
+      <span>YouTube · setup needed</span>
+    {% endif %}
+  </a>
+</div>
+
+<style>
+  .yt-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.85rem;
+    background: var(--se-bg-2);
+    border: 1px solid var(--se-line);
+    border-radius: 999px;
+    color: var(--se-fg-1);
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 120ms ease;
+  }
+  .yt-status-pill:hover {
+    border-color: var(--se-cyan);
+    color: var(--se-fg-0);
+  }
+  .yt-status-pill.connected {
+    border-color: rgba(74, 222, 128, 0.35);
+    box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.18);
+  }
+</style>
+
+<!-- Pipeline at a glance -->
+<div class="pipeline-strip se-mb-3">
+  <span class="ps-step"><span class="ps-num">1</span> Drop video</span>
+  <span class="ps-arrow">→</span>
+  <span class="ps-step"><span class="ps-num">2</span> Transcribe</span>
+  <span class="ps-arrow">→</span>
+  <span class="ps-step"><span class="ps-num">3</span> Drafts + Shorts</span>
+  <span class="ps-arrow">→</span>
+  <span class="ps-step"><span class="ps-num">4</span> Publish</span>
+</div>
+
+<!-- PRIMARY: long-form video → full pipeline -->
+<div class="se-card glow-cyan se-mb-2">
+  <div class="se-card-label">🎥 Long-form video → full pipeline</div>
+  <form id="video-form" enctype="multipart/form-data">
+    <div id="video-drop" class="drop-zone se-mt-2">
+      <div class="drop-zone-inner">
+        <div style="font-size: 2.4rem; margin-bottom: 0.4rem;">🎥</div>
+        <div class="drop-headline">Drop a long-form video here</div>
+        <div class="drop-sub">
+          .mp4 · .mov · .mkv — or
+          <label for="video-input" class="se-text-cyan" style="cursor: pointer; text-decoration: underline;">browse</label>
+        </div>
+        <input type="file" id="video-input" name="file" accept="video/*" style="display: none;" />
+      </div>
+      <div id="video-picked" class="picked-file" style="display: none;"></div>
+    </div>
+
+    <div class="se-grid cols-2 se-mt-2" style="gap: 0.75rem;">
+      <div>
+        <label class="se-card-label">Topic slug</label>
+        <input type="text" name="slug" placeholder="optional" class="se-input" />
+      </div>
+      <div>
+        <label class="se-card-label">Product focus</label>
+        <select name="product" class="se-input">
+          <option value="both">Both</option>
+          <option value="bb">Bracket Boss</option>
+          <option value="dg">Drawdown Guardian</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="se-mt-2">
+      <label class="se-card-label">AI direction for Shorts</label>
+      <textarea
+        name="creator_guidance"
+        class="se-input"
+        rows="4"
+        maxlength="2000"
+        placeholder="Example: Push discipline score hard. Favor clips with trailing drawdown risk, emotional control, and funded-account stakes. Avoid generic tutorial moments."
+        style="resize: vertical; min-height: 96px;"
+      ></textarea>
+    </div>
+
+    <details class="adv-disclosure se-mt-2">
+      <summary>⚙ Advanced — transcription engine + model</summary>
+      <div class="se-grid cols-2 se-mt-2" style="gap: 0.75rem;">
+        <div>
+          <label class="se-card-label">Transcribe</label>
+          <select name="provider" class="se-input">
+            <option value="local">Local Whisper (free)</option>
+            <option value="assemblyai">AssemblyAI cloud</option>
+          </select>
+        </div>
+        <div>
+          <label class="se-card-label">Whisper model</label>
+          <select name="whisper_model" class="se-input">
+            <option value="tiny">tiny (fastest)</option>
+            <option value="base" selected>base (default)</option>
+            <option value="small">small</option>
+            <option value="medium">medium (accurate)</option>
+            <option value="large-v3">large-v3 (best, slow)</option>
+          </select>
+        </div>
+      </div>
+    </details>
+
+    <div class="se-flex se-gap-2 se-mt-3" style="justify-content: space-between; align-items: center;">
+      <div class="se-text-xs se-text-fg2" style="max-width: 60%;">
+        ~5x realtime on CPU. 30-min video ≈ 6 min processing.
+      </div>
+      <button type="submit" id="video-process-btn" class="se-btn primary" disabled>⚡ Run pipeline</button>
+    </div>
+
+    <div id="upload-progress" class="upload-progress" style="display: none;">
+      <div class="upload-progress-bar"><div id="upload-fill" class="upload-progress-fill"></div></div>
+      <div class="se-text-xs se-text-fg2 se-mt-1" id="upload-text">Uploading...</div>
+    </div>
+  </form>
+</div>
+
+<!-- SECONDARY: already have a transcript? drafts only -->
+<details class="transcript-fallback se-mb-3">
+  <summary>📝 Already have a transcript? Generate text drafts only — no clips →</summary>
+  <div class="se-card glow-violet se-mt-2">
+    <form id="upload-form" enctype="multipart/form-data">
+      <div id="drop-zone" class="drop-zone se-mt-2">
+        <div class="drop-zone-inner">
+          <div style="font-size: 2.4rem; margin-bottom: 0.4rem;">📝</div>
+          <div class="drop-headline">Drop transcript</div>
+          <div class="drop-sub">
+            .txt · .srt · .docx — or
+            <label for="file-input" class="se-text-violet" style="cursor: pointer; text-decoration: underline;">browse</label>
+          </div>
+          <input type="file" id="file-input" name="file" accept=".txt,.srt,.docx" style="display: none;" />
+        </div>
+        <div id="picked-file" class="picked-file" style="display: none;"></div>
+      </div>
+
+      <div class="se-grid cols-3 se-mt-2" style="gap: 0.75rem;">
+        <div>
+          <label class="se-card-label">Slug</label>
+          <input type="text" name="slug" placeholder="optional" class="se-input" />
+        </div>
+        <div>
+          <label class="se-card-label">Product</label>
+          <select name="product" class="se-input">
+            <option value="both">Both</option>
+            <option value="bb">Bracket Boss</option>
+            <option value="dg">Drawdown Guardian</option>
+          </select>
+        </div>
+        <div>
+          <label class="se-card-label">Model</label>
+          <select name="premium" class="se-input">
+            <option value="">Sonnet 4.6</option>
+            <option value="1">Opus 4.7</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="se-flex se-gap-2 se-mt-3" style="justify-content: space-between;">
+        <div class="se-text-xs se-text-fg2">15–35s. No video clips, just text drafts.</div>
+        <div class="se-flex se-gap-1">
+          <button type="button" id="scan-btn" class="se-btn">↻ Scan</button>
+          <button type="submit" id="process-btn" class="se-btn primary" disabled>⚡ Process</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</details>
+
+<!-- Working overlay (transcript-only path) -->
+<div id="working" class="working-overlay" style="display: none;">
+  <div class="working-panel">
+    <div class="working-spinner"></div>
+    <div class="working-headline">Multiplying content...</div>
+    <div class="working-sub" id="working-sub">Calling the API · this takes 15–35 seconds</div>
+  </div>
+</div>
+
+<!-- Recent activity (video pipeline + uploads) -->
+{% if recent_jobs %}
+<div class="se-flex se-gap-2 se-mb-2" style="justify-content: space-between; align-items: center;">
+  <h2 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--se-cyan); letter-spacing: 0.02em;">
+    Recent activity
+  </h2>
+  <div class="se-flex se-gap-2" style="align-items: center;">
+    {% if publish_count %}<span class="se-text-xs" style="color: var(--se-green); font-weight: 600;">▲ {{ publish_count }} ready to publish</span>{% endif %}
+    {% if failed_count %}
+    <form method="post" action="/content/jobs/clear-failed" style="margin: 0;">
+      <button type="submit" class="se-btn" style="font-size: 0.72rem; padding: 0.28rem 0.6rem;">✕ Clear {{ failed_count }} failed</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+<div class="job-list se-mb-3">
+  {% for j in recent_jobs %}
+  <div class="job-row job-{{ j.state }}">
+    <div class="job-status">
+      {% if j.state in ['running', 'queued'] %}<span class="job-spinner"></span>
+      {% elif j.state == 'done' and j.kind == 'youtube-upload' %}<span class="job-icon" style="color: #f87171;">▶</span>
+      {% elif j.state == 'done' %}<span class="job-icon" style="color: var(--se-green);">✓</span>
+      {% elif j.state == 'failed' %}<span class="job-icon" style="color: #f87171;">✕</span>
+      {% endif %}
+    </div>
+    <div class="job-body">
+      <div class="job-title">
+        <span class="mono se-text-sm">{{ j.source_filename }}</span>
+        {% if j.kind == 'youtube-upload' %}<span class="job-tag tag-yt">YouTube</span>
+        {% elif j.kind == 'video' %}<span class="job-tag tag-video">video → clips</span>
+        {% elif j.kind == 'transcript' %}<span class="job-tag">transcript</span>{% endif %}
+      </div>
+      {% if j.state in ['running', 'queued'] %}
+        <div class="job-sub">{{ j.current_step }} · {{ j.progress_pct }}%</div>
+        <div class="job-progress"><div class="job-progress-fill" style="width: {{ j.progress_pct }}%;"></div></div>
+      {% elif j.state == 'failed' %}
+        <div class="job-sub job-err" title="{{ j.error or '' }}">⚠ {{ j.error or j.current_step or 'failed' }}</div>
+      {% elif j.state == 'done' and j.kind == 'youtube-upload' %}
+        <div class="job-sub" style="color: var(--se-green);">Published to YouTube</div>
+      {% elif j.state == 'done' and j.published %}
+        <div class="job-sub">✓ Published · clips + drafts saved</div>
+      {% elif j.state == 'done' %}
+        <div class="job-sub" style="color: #fbbf24;">▲ Ready to publish — push clips to drive traffic</div>
+      {% endif %}
+    </div>
+    <div class="job-actions">
+      {% if j.state in ['running', 'queued'] %}
+        <a href="/content/job/{{ j.id }}/view" class="se-btn">Watch live →</a>
+      {% elif j.platform_url %}
+        <a href="{{ j.platform_url }}" target="_blank" class="se-btn">↗ Watch</a>
+      {% elif j.state == 'done' and j.result_slug and not j.published %}
+        <a href="/content/{{ j.result_slug }}" class="se-btn primary">Review &amp; publish →</a>
+      {% elif j.state == 'done' and j.result_slug %}
+        <a href="/content/{{ j.result_slug }}" class="se-btn">Open run →</a>
+      {% endif %}
+      {% if j.state in ['done', 'failed'] %}
+      <form method="post" action="/content/job/{{ j.id }}/delete" style="margin: 0;">
+        <button type="submit" class="job-dismiss" title="Remove from list" aria-label="Dismiss">✕</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% if done_hidden %}<div class="se-text-xs se-text-fg2" style="margin: -0.4rem 0 1.1rem;">+ {{ done_hidden }} earlier completion{{ 's' if done_hidden != 1 }} — see Past runs below</div>{% endif %}
+{% endif %}
+
+<!-- Currently in incoming/ (transcript-only) -->
+{% if incoming_files %}
+<div class="se-card se-mb-3">
+  <div class="se-card-label">Currently in incoming/ (transcripts)</div>
+  <table class="se-table se-mt-2">
+    <thead><tr><th>File</th><th>Size</th></tr></thead>
+    <tbody>
+      {% for f in incoming_files %}
+      <tr>
+        <td><span class="mono">{{ f.name }}</span></td>
+        <td class="se-text-fg2 mono se-text-sm">{{ '%.1f'|format(f.size / 1024) }} KB</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="se-text-xs se-text-fg2 se-mt-2">
+    Watcher processes every ~6s, or click <strong>↻ Scan</strong>.
+  </div>
+</div>
+{% endif %}
+
+<!-- Past runs -->
+<div class="se-flex se-gap-2 se-mb-2" style="justify-content: space-between; align-items: center;">
+  <h2 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--se-cyan); letter-spacing: 0.02em;">
+    Past content runs
+  </h2>
+  <div class="se-flex se-gap-2" style="align-items: center;">
+    {% if runs_need_publish %}<span class="se-text-xs" style="color: #fbbf24; font-weight: 600;">▲ {{ runs_need_publish }} not fully distributed</span>{% endif %}
+    <span class="se-text-xs se-text-fg2">{{ runs|length }} total</span>
+  </div>
+</div>
+
+{% if runs %}
+<div class="se-grid cols-2">
+  {% for r in runs %}
+  <a href="/content/{{ r.slug }}" class="se-card run-card {% if r.is_video_run and not r.published %}run-needs-publish{% endif %}">
+    <div class="se-flex se-gap-2" style="justify-content: space-between; align-items: center;">
+      <div class="mono se-text-cyan" style="font-size: 0.85rem;">{{ r.slug }}</div>
+      <div class="se-flex se-gap-1" style="align-items: center;">
+        {% if r.is_video_run and r.published %}
+          <span class="run-badge badge-pub" title="Every clip on all 5 channels">✓ Distributed</span>
+        {% elif r.is_video_run %}
+          <span class="run-badge badge-needs" title="{{ r.dist_done }}/{{ r.dist_total }} channel-posts done (clips × 5 channels)">▲ {{ r.dist_done }}/{{ r.dist_total }} out</span>
+        {% endif %}
+        <span class="se-text-xs se-text-fg2 mono">{{ r.file_count }} files</span>
+      </div>
+    </div>
+    {% if r.meta.source_filename %}
+    <div class="se-text-xs se-text-fg2 se-mt-1">
+      from <span class="mono">{{ r.meta.source_filename }}</span>
+      {% if r.meta.has_timestamps %}<span class="se-pill stage-replied" style="margin-left: 0.4rem;">SRT timestamps</span>{% endif %}
+    </div>
+    {% endif %}
+    {% if r.meta.run_completed_at %}
+    <div class="se-text-xs se-text-fg2 se-mt-1">
+      completed <span class="mono">{{ r.meta.run_completed_at }}</span>
+      {% if r.meta.model %} · <span class="mono">{{ r.meta.model }}</span>{% endif %}
+    </div>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="se-card">
+  <div class="se-text-fg2 se-text-sm">
+    No content runs yet. Drop a video or transcript above.
+  </div>
+</div>
+{% endif %}
+
+<style>
+  .drop-zone {
+    border: 2px dashed var(--se-line);
+    border-radius: 12px;
+    padding: 1.6rem 1.2rem;
+    text-align: center;
+    transition: all 160ms ease;
+    cursor: pointer;
+    background: rgba(34, 211, 238, 0.02);
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--se-cyan);
+    background: rgba(34, 211, 238, 0.06);
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.12);
+  }
+  .drop-zone.has-file { border-style: solid; border-color: var(--se-cyan); }
+  .drop-headline {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--se-fg-0);
+    margin-bottom: 0.2rem;
+  }
+  .drop-sub { color: var(--se-fg-2); font-size: 0.82rem; }
+  .picked-file {
+    margin-top: 0.8rem;
+    padding: 0.45rem 0.65rem;
+    background: var(--se-bg-2);
+    border: 1px solid var(--se-line);
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--se-cyan);
+  }
+  .se-input {
+    width: 100%;
+    margin-top: 0.4rem;
+    background: var(--se-bg-1);
+    border: 1px solid var(--se-line);
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    color: var(--se-fg-0);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .se-input:focus {
+    border-color: var(--se-cyan);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+  }
+  .upload-progress {
+    margin-top: 1rem;
+  }
+  .upload-progress-bar {
+    height: 6px;
+    background: var(--se-bg-2);
+    border: 1px solid var(--se-line);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .upload-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--se-cyan), var(--se-violet));
+    box-shadow: 0 0 10px var(--se-cyan-glow);
+    transition: width 200ms linear;
+  }
+  .run-card { text-decoration: none; color: inherit; transition: all 120ms ease; }
+  .run-card:hover {
+    border-color: var(--se-cyan);
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.18), 0 0 18px rgba(34, 211, 238, 0.10);
+  }
+  .run-card.run-needs-publish { border-left: 3px solid #fbbf24; }
+  .run-badge {
+    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+    padding: 0.14rem 0.45rem; border-radius: 999px; white-space: nowrap;
+  }
+  .run-badge.badge-pub { color: var(--se-green); background: rgba(74, 222, 128, 0.12); border: 1px solid rgba(74, 222, 128, 0.3); }
+  .run-badge.badge-needs { color: #fbbf24; background: rgba(251, 191, 36, 0.12); border: 1px solid rgba(251, 191, 36, 0.32); }
+  .working-overlay {
+    position: fixed; inset: 0;
+    background: rgba(7, 9, 15, 0.85);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: grid; place-items: center;
+  }
+  .working-panel { text-align: center; padding: 2rem 3rem; }
+  .working-spinner {
+    width: 64px; height: 64px;
+    margin: 0 auto 1.5rem auto;
+    border: 3px solid var(--se-line);
+    border-top-color: var(--se-cyan);
+    border-right-color: var(--se-violet);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .working-headline { font-size: 1.15rem; font-weight: 700; color: var(--se-fg-0); margin-bottom: 0.4rem; }
+  .working-sub { color: var(--se-fg-2); font-size: 0.85rem; font-family: 'JetBrains Mono', monospace; }
+
+  /* Pipeline-at-a-glance strip */
+  .pipeline-strip {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    padding: 0.5rem 0.85rem;
+    background: var(--se-bg-2); border: 1px solid var(--se-line);
+    border-radius: 8px;
+    font-size: 0.78rem; color: var(--se-fg-2);
+  }
+  .pipeline-strip .ps-step { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .pipeline-strip .ps-num {
+    display: inline-grid; place-items: center;
+    width: 18px; height: 18px; border-radius: 999px;
+    background: rgba(34, 211, 238, 0.14); color: var(--se-cyan);
+    font-size: 0.68rem; font-weight: 700;
+  }
+  .pipeline-strip .ps-arrow { color: var(--se-line); }
+
+  /* Disclosure folds (advanced options + transcript fallback) */
+  .adv-disclosure > summary, .transcript-fallback > summary {
+    cursor: pointer; list-style: none;
+    color: var(--se-fg-2); font-size: 0.8rem;
+    user-select: none; transition: color 120ms ease;
+  }
+  .adv-disclosure > summary { padding: 0.35rem 0; }
+  .adv-disclosure > summary:hover, .transcript-fallback > summary:hover { color: var(--se-cyan); }
+  .adv-disclosure > summary::-webkit-details-marker,
+  .transcript-fallback > summary::-webkit-details-marker { display: none; }
+  .transcript-fallback > summary {
+    display: inline-block;
+    padding: 0.55rem 0.85rem; font-weight: 500;
+    background: var(--se-bg-2); border: 1px solid var(--se-line); border-radius: 8px;
+  }
+  .transcript-fallback[open] > summary {
+    color: var(--se-violet); border-color: rgba(167, 139, 250, 0.4);
+  }
+
+  /* Recent activity — clean job rows */
+  .job-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .job-row {
+    display: flex; align-items: center; gap: 0.85rem;
+    padding: 0.7rem 0.9rem;
+    background: var(--se-bg-1); border: 1px solid var(--se-line);
+    border-radius: 9px; transition: border-color 120ms ease;
+  }
+  .job-row:hover { border-color: rgba(34, 211, 238, 0.3); }
+  .job-row.job-running { border-color: rgba(34, 211, 238, 0.35); }
+  .job-row.job-failed { border-color: rgba(248, 113, 113, 0.28); background: rgba(248, 113, 113, 0.04); }
+  .job-status { flex: 0 0 22px; display: grid; place-items: center; }
+  .job-icon { font-size: 1rem; }
+  .job-spinner {
+    width: 15px; height: 15px;
+    border: 2px solid var(--se-line); border-top-color: var(--se-cyan);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  .job-body { flex: 1 1 auto; min-width: 0; }
+  .job-title { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .job-title .mono { color: var(--se-fg-0); }
+  .job-tag {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+    padding: 0.12rem 0.4rem; border-radius: 4px;
+    background: var(--se-bg-2); border: 1px solid var(--se-line); color: var(--se-fg-2);
+  }
+  .job-tag.tag-yt { color: #f87171; border-color: rgba(248, 113, 113, 0.35); }
+  .job-tag.tag-video { color: var(--se-cyan); border-color: rgba(34, 211, 238, 0.35); }
+  .job-sub { font-size: 0.76rem; color: var(--se-fg-2); margin-top: 0.2rem; }
+  .job-sub.job-err {
+    color: #f87171; font-family: 'JetBrains Mono', monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 540px;
+  }
+  .job-progress {
+    height: 4px; background: var(--se-bg-2); border-radius: 999px;
+    margin-top: 0.35rem; overflow: hidden; max-width: 320px;
+  }
+  .job-progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--se-cyan), var(--se-violet));
+    transition: width 300ms ease;
+  }
+  .job-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 0.5rem; }
+  .job-dismiss {
+    background: transparent; border: 1px solid var(--se-line); color: var(--se-fg-2);
+    border-radius: 6px; width: 26px; height: 26px; cursor: pointer; line-height: 1;
+    transition: all 120ms ease;
+  }
+  .job-dismiss:hover { border-color: #f87171; color: #f87171; }
+</style>
+
+<script>
+  // --------------- VIDEO drop ---------------
+  (function() {
+    const zone = document.getElementById('video-drop');
+    const input = document.getElementById('video-input');
+    const picked = document.getElementById('video-picked');
+    const btn = document.getElementById('video-process-btn');
+    const form = document.getElementById('video-form');
+    const progressWrap = document.getElementById('upload-progress');
+    const progressFill = document.getElementById('upload-fill');
+    const progressText = document.getElementById('upload-text');
+
+    function setFile(f) {
+      const dt = new DataTransfer(); dt.items.add(f); input.files = dt.files;
+      picked.textContent = `${f.name}  ·  ${(f.size / 1024 / 1024).toFixed(1)} MB`;
+      picked.style.display = 'block';
+      zone.classList.add('has-file');
+      btn.disabled = false;
+    }
+
+    zone.addEventListener('click', (e) => {
+      if (e.target.tagName === 'LABEL') return;
+      input.click();
+    });
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+    });
+    input.addEventListener('change', () => {
+      if (input.files[0]) setFile(input.files[0]);
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!input.files.length) return;
+      const fd = new FormData(form);
+
+      // XHR so we can show real upload progress for large files
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/content/upload-video');
+      xhr.upload.addEventListener('progress', (ev) => {
+        if (ev.lengthComputable) {
+          const pct = Math.round((ev.loaded / ev.total) * 100);
+          progressFill.style.width = pct + '%';
+          progressText.textContent = `Uploading: ${pct}% (${(ev.loaded/1024/1024).toFixed(1)} MB / ${(ev.total/1024/1024).toFixed(1)} MB)`;
+        }
+      });
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (data.ok && data.redirect) {
+            progressText.textContent = 'Upload complete · queuing pipeline...';
+            location.href = data.redirect;
+          } else {
+            alert('Error: ' + (data.error || xhr.statusText));
+            progressWrap.style.display = 'none';
+          }
+        } catch (err) {
+          alert('Server error: ' + xhr.statusText);
+          progressWrap.style.display = 'none';
+        }
+      };
+      xhr.onerror = () => {
+        alert('Upload failed (network)');
+        progressWrap.style.display = 'none';
+      };
+      progressWrap.style.display = 'block';
+      btn.disabled = true;
+      xhr.send(fd);
+    });
+  })();
+
+  // --------------- TRANSCRIPT drop (existing flow) ---------------
+  (function() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const pickedFile = document.getElementById('picked-file');
+    const processBtn = document.getElementById('process-btn');
+    const scanBtn = document.getElementById('scan-btn');
+    const form = document.getElementById('upload-form');
+    const working = document.getElementById('working');
+    const workingSub = document.getElementById('working-sub');
+
+    function setFile(file) {
+      const dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files;
+      pickedFile.textContent = `${file.name}  ·  ${(file.size / 1024).toFixed(1)} KB`;
+      pickedFile.style.display = 'block';
+      dropZone.classList.add('has-file');
+      processBtn.disabled = false;
+    }
+
+    dropZone.addEventListener('click', (e) => {
+      if (e.target.tagName === 'LABEL') return;
+      fileInput.click();
+    });
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) setFile(fileInput.files[0]);
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!fileInput.files.length) return;
+      working.style.display = 'grid';
+      workingSub.textContent = 'Calling the API · this takes 15–35 seconds';
+      const fd = new FormData(form);
+      try {
+        const res = await fetch('/content/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.ok && data.redirect) {
+          workingSub.textContent = 'Done. Loading drafts...';
+          location.href = data.redirect;
+        } else {
+          working.style.display = 'none';
+          alert('Error: ' + (data.error || 'unknown'));
+        }
+      } catch (err) {
+        working.style.display = 'none';
+        alert('Network error: ' + err.message);
+      }
+    });
+
+    scanBtn.addEventListener('click', async () => {
+      working.style.display = 'grid';
+      workingSub.textContent = 'Scanning incoming folder...';
+      try {
+        const res = await fetch('/content/scan', { method: 'POST' });
+        const data = await res.json();
+        working.style.display = 'none';
+        const n = (data.processed || []).length;
+        if (n === 0) alert('No new transcripts in incoming/.');
+        else location.reload();
+      } catch (err) {
+        working.style.display = 'none';
+        alert('Network error: ' + err.message);
+      }
+    });
+  })();
+</script>
+{% endblock %}

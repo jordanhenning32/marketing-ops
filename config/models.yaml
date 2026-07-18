@@ -1,0 +1,58 @@
+# Role-based LLM routing with per-role fallback chains.
+#
+# Each role lists (provider, model) candidates in PRIORITY ORDER. A call tries
+# them top-to-bottom: a missing API key or a failed/timed-out call falls through
+# to the next candidate. The call only fails if EVERY candidate fails. This is
+# what keeps a dead key or a provider outage from stopping a 24/7 run.
+#
+# Tune freely — this file is the control panel; no code change needed.
+#
+# NOTE: Anthropic model IDs are current. Verify the non-Anthropic IDs against
+# each provider's latest docs and adjust here if they've moved.
+
+providers:
+  anthropic:
+    kind: anthropic
+    key_env: ANTHROPIC_API_KEY
+    base_url: https://api.anthropic.com/v1/messages
+  deepseek:
+    kind: openai            # DeepSeek speaks the OpenAI chat-completions shape
+    key_env: DEEPSEEK_API_KEY
+    base_url: https://api.deepseek.com/chat/completions
+  openai:
+    kind: openai
+    key_env: OPENAI_API_KEY
+    base_url: https://api.openai.com/v1/chat/completions
+  grok:
+    kind: openai            # xAI Grok is OpenAI-compatible
+    key_env: GROK_API_KEY
+    base_url: https://api.x.ai/v1/chat/completions
+  gemini:
+    kind: gemini
+    key_env: GEMINI_API_KEY
+    base_url: https://generativelanguage.googleapis.com/v1beta/models
+
+roles:
+  # High volume, low stakes — cheap first. DeepSeek is the budget workhorse.
+  triage:
+    - {provider: deepseek, model: deepseek-chat}
+    - {provider: gemini, model: gemini-2.0-flash}
+    - {provider: anthropic, model: claude-haiku-4-5}
+    - {provider: anthropic, model: claude-sonnet-4-6}
+
+  # Low volume, brand-critical — quality first, capable backups only.
+  drafting:
+    - {provider: anthropic, model: claude-sonnet-4-6}
+    - {provider: openai, model: gpt-4o}
+    - {provider: gemini, model: gemini-2.0-flash}
+    - {provider: deepseek, model: deepseek-chat}
+
+  # Hero content (video -> all channels) — top quality first.
+  content:
+    - {provider: anthropic, model: claude-opus-4-8}
+    - {provider: anthropic, model: claude-sonnet-4-6}
+    - {provider: openai, model: gpt-4o}
+
+defaults:
+  max_tokens: 2000
+  timeout_seconds: 60

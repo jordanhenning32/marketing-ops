@@ -1,0 +1,159 @@
+{# Shared YouTube connection + one-time setup card.
+   Expects in context: status (YTAuthStatus), redirect_uri, client_secret_path.
+   Rendered at the top of the YouTube tab (and the settings page) so the
+   connection UI lives in exactly one place and never drifts out of sync. #}
+
+{% if status.connected %}
+<div class="se-card glow-violet se-mb-3">
+  <div class="se-card-label">Connected</div>
+  <div class="se-card-value violet" style="font-size: 1.3rem;">
+    {{ status.channel_title or 'YouTube account' }}
+    {% if status.channel_title %}<span class="se-pill stage-posted" style="margin-left: 0.5rem; font-size: 0.6rem;">live</span>{% endif %}
+  </div>
+  {% if status.channel_id %}
+  <div class="se-card-foot">
+    Channel ID: <span class="mono">{{ status.channel_id }}</span><br>
+    {% if status.last_refreshed %}Token expires {{ status.last_refreshed }}<br>{% endif %}
+    <a href="https://studio.youtube.com" target="_blank" class="se-text-cyan">&#8599; open YouTube Studio</a>
+  </div>
+  {% endif %}
+  <div class="se-flex se-gap-1 se-mt-2" style="flex-wrap:wrap;">
+    <a href="/content/youtube/auth/start" class="se-btn primary">&#128260; Reconnect (grant edit access)</a>
+    <form method="post" action="/content/youtube/auth/disconnect" style="margin:0;">
+      <button type="submit" class="se-btn"
+              onclick="return confirm('Revoke local credentials? Re-connecting takes ~30 seconds.')">
+        &#128268; Disconnect
+      </button>
+    </form>
+  </div>
+  <div class="se-text-xs se-text-fg2 se-mt-1">Use <strong>Reconnect</strong> after a permission change (e.g. to enable video-description editing for link backfill) — Google will show the new permission to approve.</div>
+</div>
+
+{% elif status.needs_reconnect %}
+<div class="se-card se-mb-3" style="border-left:3px solid #e53935;">
+  <div class="se-card-label" style="color:#e53935;">&#9888; Reconnect needed</div>
+  <div class="se-card-value" style="font-size: 1.15rem;">YouTube token expired</div>
+  <div class="se-card-foot se-mt-1" style="line-height: 1.5;">
+    Stats and one-click uploads are paused until you reconnect. Google expires tokens after
+    7 days while the OAuth app is in &ldquo;Testing&rdquo; &mdash; publish the consent screen to stop this recurring.
+  </div>
+  <a href="/content/youtube/auth/start" class="se-btn primary se-mt-2">&#128268; Reconnect YouTube</a>
+</div>
+
+{% else %}
+<!-- Step 1: client_secret.json check -->
+<div class="se-card {% if status.has_client_secret %}glow-cyan{% else %}glow-amber{% endif %} se-mb-3">
+  <div class="se-card-label">Step 1 &mdash; Google Cloud OAuth client</div>
+  {% if status.has_client_secret %}
+    <div class="se-card-value cyan" style="font-size: 1.1rem;">&#10003; client_secret.json detected</div>
+    <div class="se-card-foot">at <span class="mono">{{ client_secret_path }}</span></div>
+  {% else %}
+    <div class="se-card-value amber" style="font-size: 1.1rem;">&#9888; client_secret.json not found</div>
+    <div class="se-card-foot">Drop the file at <span class="mono">{{ client_secret_path }}</span></div>
+  {% endif %}
+
+  <details class="se-mt-2" {% if not status.has_client_secret %}open{% endif %}>
+    <summary style="cursor: pointer; color: var(--se-cyan); font-size: 0.85rem;">
+      How to get client_secret.json (5 minutes, one-time)
+    </summary>
+    <ol class="setup-list">
+      <li>Open <a href="https://console.cloud.google.com" target="_blank" class="se-text-cyan">console.cloud.google.com</a> and sign in with the Google account that owns your YouTube channel.</li>
+      <li>Top bar &rarr; <strong>Select a project</strong> &rarr; <strong>NEW PROJECT</strong>. Name it "Shadow Edge Ops" (any name works). Wait ~30 sec for it to provision, then select it.</li>
+      <li>Sidebar &rarr; <strong>APIs &amp; Services &rarr; Library</strong>. Search "YouTube Data API v3". Click it. Click <strong>ENABLE</strong>.</li>
+      <li>Sidebar &rarr; <strong>APIs &amp; Services &rarr; OAuth consent screen</strong>. Pick <strong>External</strong>. Fill in App name (e.g. "Shadow Edge Ops"), your email, and a support email. Save and continue through the scopes/test-users screens (no scopes needed here, no test users needed if your account is the channel owner). On the final screen click <strong>Back to Dashboard</strong>.</li>
+      <li>Sidebar &rarr; <strong>APIs &amp; Services &rarr; Credentials</strong>. Click <strong>+ CREATE CREDENTIALS &rarr; OAuth client ID</strong>.</li>
+      <li>Application type: <strong>Web application</strong>. Name: any. Under <strong>Authorized redirect URIs</strong>, add exactly:
+        <div class="copy-row se-mt-1">
+          <code id="redirect-uri">{{ redirect_uri }}</code>
+          <button type="button" class="se-btn" onclick="navigator.clipboard.writeText(document.getElementById('redirect-uri').textContent.trim()).then(()=>{this.textContent='&#10003; copied';setTimeout(()=>this.textContent='&#128203;',1200)})">&#128203;</button>
+        </div>
+      </li>
+      <li>Click <strong>CREATE</strong>. A "OAuth client created" dialog appears with a download icon &mdash; click <strong>DOWNLOAD JSON</strong>.</li>
+      <li>Save (or move) that file to:
+        <div class="copy-row se-mt-1">
+          <code>{{ client_secret_path }}</code>
+          <button type="button" class="se-btn" onclick="navigator.clipboard.writeText('{{ client_secret_path }}').then(()=>{this.textContent='&#10003;';setTimeout(()=>this.textContent='&#128203;',1200)})">&#128203;</button>
+        </div>
+        Rename it to <code>client_secret.json</code>.
+      </li>
+      <li>Refresh this page. Step 2 will unlock.</li>
+    </ol>
+  </details>
+</div>
+
+<!-- Step 2: connect button -->
+<div class="se-card {% if status.has_client_secret %}glow-cyan{% endif %} se-mb-3">
+  <div class="se-card-label">Step 2 &mdash; Connect</div>
+  <div class="se-card-foot se-mt-1" style="line-height: 1.5;">
+    Click below &mdash; your default browser opens Google's consent screen, you pick the channel,
+    and you're sent back here connected. We never see your password.
+  </div>
+  <a href="/content/youtube/auth/start"
+     class="se-btn primary se-mt-2"
+     {% if not status.has_client_secret %}style="opacity: 0.4; pointer-events: none;"{% endif %}>
+    &#128268; Connect YouTube
+  </a>
+</div>
+{% endif %}
+
+<!-- Upload defaults (collapsed reference — keeps the stats tab focused) -->
+<details class="se-card se-mb-3">
+  <summary class="se-card-label" style="cursor: pointer; color: var(--se-cyan);">Upload defaults</summary>
+  <div class="se-card-foot se-mt-2" style="line-height: 1.6;">
+    These are read from <code>config/distribution.yaml</code>. Edit there to change.
+    <ul class="setup-list" style="margin-top: 0.5rem;">
+      <li><strong>Privacy:</strong> default from config (recommend <code>unlisted</code> for first runs, then flip to <code>public</code> after manual review)</li>
+      <li><strong>Hashtags:</strong> caption hashtags + config defaults, deduped, capped at 30</li>
+      <li><strong>Description footer:</strong> auto-appended to every video</li>
+      <li><strong>Daily quota:</strong> 10,000 units default &asymp; 6 uploads/day. <a href="https://console.cloud.google.com/apis/api/youtube.googleapis.com/quotas" target="_blank" class="se-text-cyan">Request increase</a> if you scale up.</li>
+    </ul>
+  </div>
+</details>
+
+{% if request.query_params.get('just_connected') %}
+<script>
+  // Tiny celebratory flourish after a fresh connect
+  setTimeout(() => {
+    const card = document.querySelector('.se-card.glow-violet');
+    if (card) card.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 200);
+</script>
+{% endif %}
+
+<style>
+  .setup-list {
+    margin: 0.6rem 0 0 1.2rem;
+    color: var(--se-fg-1);
+    font-size: 0.88rem;
+    line-height: 1.7;
+  }
+  .setup-list li { margin-bottom: 0.4rem; }
+  .setup-list code {
+    background: var(--se-bg-2);
+    border: 1px solid var(--se-line);
+    border-radius: 4px;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.82em;
+    color: var(--se-cyan);
+    word-break: break-all;
+  }
+  .copy-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .copy-row code {
+    flex: 1;
+    background: var(--se-bg-0);
+    border: 1px solid var(--se-line);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--se-cyan);
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::marker { content: ''; }
+  details summary::before { content: '\25B8  '; }
+  details[open] summary::before { content: '\25BE  '; }
+</style>

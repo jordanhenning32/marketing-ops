@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Shadow Edge Ops{% endblock %}</title>
+  <link rel="icon" href="/static/shadow-edge.ico" sizes="any" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/shadow-edge.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <div class="se-shell">
+    <aside class="se-sidebar">
+      <div class="se-brand">
+        <div class="shield">SE</div>
+        <div class="name">
+          Shadow Edge
+          <small>Ops Console</small>
+        </div>
+      </div>
+
+      <a href="/today" class="se-nav-item {% if active == 'today' %}active{% endif %}">
+        <span>🗓️</span><span>Today's Ops</span>
+      </a>
+      <a href="/content" class="se-nav-item {% if active == 'content' %}active{% endif %}">
+        <span>🎬</span><span>Content</span>
+      </a>
+      <a href="/listening" class="se-nav-item {% if active == 'listening' %}active{% endif %}">
+        <span>🎧</span><span>Listening</span>
+      </a>
+      <a href="/engagement" class="se-nav-item {% if active == 'engagement' %}active{% endif %}">
+        <span>💬</span><span>Engagement</span>
+      </a>
+      <a href="/leads" class="se-nav-item {% if active == 'leads' %}active{% endif %}">
+        <span>📥</span><span>Leads</span>
+      </a>
+      <a href="/email-queue" class="se-nav-item {% if active == 'email_queue' %}active{% endif %}">
+        <span>✉️</span><span>Email Queue</span>
+      </a>
+      <a href="/performance" class="se-nav-item {% if active == 'performance' %}active{% endif %}">
+        <span>📈</span><span>Performance</span>
+      </a>
+      <a href="/youtube" class="se-nav-item {% if active == 'youtube' %}active{% endif %}">
+        <span>📺</span><span>YouTube</span>
+      </a>
+      <a href="/tiktok" class="se-nav-item {% if active == 'tiktok' %}active{% endif %}">
+        <span>🎵</span><span>TikTok</span>
+      </a>
+      <div class="se-spacer"></div>
+
+      <form method="post" action="/run/ops" style="margin: 0;">
+        <button class="se-btn primary" style="width: 100%; justify-content: center;" type="submit">
+          ⚡ Run Ops
+        </button>
+      </form>
+      <div class="se-text-xs se-text-fg2" style="text-align: center; margin-top: 0.5rem;">
+        Regenerates today's ops file from current state
+      </div>
+    </aside>
+
+    <main class="se-main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script>
+    // Render any element with class "render-md" as markdown
+    document.querySelectorAll('.render-md').forEach((el) => {
+      const raw = el.textContent;
+      el.innerHTML = marked.parse(raw);
+      el.classList.add('se-md');
+      el.classList.remove('render-md');
+    });
+  </script>
+</body>
+</html>

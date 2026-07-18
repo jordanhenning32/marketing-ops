@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Engagement | Shadow Edge Ops{% endblock %}
+{% block content %}
+<section class="se-page-header">
+  <div>
+    <h1>Engagement Queue</h1>
+    <p class="se-muted">Drafted replies waiting for your review. You post them manually — approve, copy, post on the platform, then paste the URL back. The system never posts for you.</p>
+  </div>
+</section>
+
+{% if error %}
+<div class="se-card" style="border-left:3px solid #e53935;">{{ error }}</div>
+{% endif %}
+
+<div class="se-card" style="display:flex; gap:.8rem; align-items:center;">
+  <strong>Filter:</strong>
+  <a class="se-btn{{ ' primary' if not status_filter }}" href="/engagement">All</a>
+  <a class="se-btn{{ ' primary' if status_filter == 'drafted' }}" href="/engagement?status=drafted">Drafted</a>
+  <a class="se-btn{{ ' primary' if status_filter == 'approved' }}" href="/engagement?status=approved">Approved</a>
+  <a class="se-btn{{ ' primary' if status_filter == 'posted' }}" href="/engagement?status=posted">Posted</a>
+  <a class="se-btn{{ ' primary' if status_filter == 'skipped' }}" href="/engagement?status=skipped">Skipped</a>
+</div>
+
+{% for item in items %}
+<div class="se-card" id="i-{{ item.id }}">
+  <div style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem;">
+    <h3 style="margin:.2rem 0;">{{ item.platform_name }}
+      <span class="se-text-xs se-text-fg2">· score {{ "%.2f"|format(item.score|float) }} · {{ item.intent }} · {{ item.status }}</span>
+    </h3>
+    <a href="{{ item.url }}" target="_blank" rel="noopener">open thread ↗</a>
+  </div>
+
+  {% if item.pain_point %}<p class="se-muted" style="margin:.2rem 0;"><strong>Pain point:</strong> {{ item.pain_point }}{% if item.angle %} · <strong>Angle:</strong> {{ item.angle }}{% endif %}</p>{% endif %}
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:.8rem; margin:.5rem 0;">
+    <div>
+      <label class="se-text-xs se-text-fg2">Their post</label>
+      <textarea readonly rows="5" style="width:100%;">{{ item.their_post }}</textarea>
+    </div>
+    <div>
+      <label class="se-text-xs se-text-fg2">Draft reply (edits save when you approve, skip, or mark posted)</label>
+      <textarea id="r-{{ item.id }}" name="draft_reply" form="f-{{ item.id }}" rows="5" style="width:100%;">{{ item.draft_reply }}</textarea>
+      <div style="display:flex; gap:.5rem; align-items:center; margin-top:.3rem;">
+        {% if item.status in ['approved', 'posted'] %}
+          <button type="button" class="se-btn" onclick="copyReply('{{ item.id }}')">Copy reply</button>
+        {% else %}
+          <small class="se-text-fg2">Approve first to unlock copy.</small>
+        {% endif %}
+        <small class="se-text-fg2">
+          compliance: {{ item.compliance_status or "—" }}
+          {% if item.names_product %} · names product{% endif %}
+        </small>
+      </div>
+    </div>
+  </div>
+
+  <form id="f-{{ item.id }}" method="post" action="/engagement/action" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; border-top:1px solid var(--se-border,#2a2a2a); padding-top:.6rem;">
+    <input type="hidden" name="item_id" value="{{ item.id }}">
+    {% if item.status == 'drafted' %}
+      <button class="se-btn primary" name="action" value="approved">Approve</button>
+      <button class="se-btn" name="action" value="skipped">Skip</button>
+    {% elif item.status == 'approved' %}
+      <input class="se-input" name="posted_url" type="url" required placeholder="paste the live comment URL" style="min-width:280px;">
+      <button class="se-btn primary" name="action" value="posted">Mark posted</button>
+      <button class="se-btn" name="action" value="skipped">Skip</button>
+    {% elif item.status == 'posted' %}
+      <span class="se-text-fg2">Posted{% if item.posted_url %}: <a href="{{ item.posted_url }}" target="_blank" rel="noopener">{{ item.posted_url }}</a>{% endif %}</span>
+    {% else %}
+      <span class="se-text-fg2">{{ item.status }}</span>
+      <button class="se-btn" name="action" value="approved">Re-open (approve)</button>
+    {% endif %}
+  </form>
+</div>
+{% else %}
+<div class="se-card">No drafts in the queue{% if status_filter %} with status "{{ status_filter }}"{% endif %}. Run a scan from <a href="/listening">Listening</a> to generate some.</div>
+{% endfor %}
+
+<script>
+function copyReply(id) {
+  const el = document.getElementById('r-' + id);
+  el.select();
+  navigator.clipboard.writeText(el.value);
+}
+</script>
+{% endblock %}

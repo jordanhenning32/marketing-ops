@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Lead Capture | Shadow Edge Tools{% endblock %}
+{% block content %}
+<section class="se-page-header"><div><h1>Shadow Edge Risk-Control Checklist</h1><p class="se-muted">Campaign: {{ campaign_id }}</p></div></section>
+<div class="se-card" style="max-width:720px;">
+  {% if saved %}<div class="se-alert success">Thanks. Your request was recorded. If you consented, the nurture sequence was queued.</div>{% endif %}
+  {% if error %}<div class="se-alert danger">{{ error }}</div>{% endif %}
+  <form method="post">
+    <input type="hidden" name="utm_source" value="{{ utm_source }}" />
+    <input type="hidden" name="utm_medium" value="{{ utm_medium }}" />
+    <input type="hidden" name="utm_content" value="{{ utm_content }}" />
+    <label>Email<br><input class="se-input" type="email" name="email" required placeholder="you@example.com"></label>
+    <label style="display:block; margin-top:1rem;"><input type="checkbox" name="consent" value="yes" required> I agree to receive Shadow Edge Tools emails and understand I can unsubscribe at any time.</label>
+    <button class="se-btn primary" type="submit" style="margin-top:1rem;">Send the checklist</button>
+  </form>
+  <p class="se-muted">Tools and education only. No financial advice or promised trading outcome.</p>
+</div>
+{% endblock %}

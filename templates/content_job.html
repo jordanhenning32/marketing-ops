@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Job {{ job.id }} · Content · Shadow Edge Ops{% endblock %}
+
+{% block content %}
+<div class="se-flex se-gap-2 se-mb-3" style="justify-content: space-between; align-items: flex-end;">
+  <div>
+    <a href="/content" class="se-text-xs se-text-fg2" style="text-decoration: none;">← all content</a>
+    <h1 class="se-h1 se-mt-1">Pipeline job</h1>
+    <div class="se-sub">
+      <span class="mono">{{ job.id }}</span> ·
+      from <span class="mono">{{ job.source_filename }}</span>
+    </div>
+  </div>
+  <div class="se-text-xs se-text-fg2 mono" style="text-align: right;">
+    started {{ job.started_at }}<br>
+    {% if job.finished_at %}finished {{ job.finished_at }}{% endif %}
+  </div>
+</div>
+
+<!-- Live state card -->
+<div id="state-card" class="se-card glow-cyan se-mb-3">
+  <div class="se-flex se-gap-2" style="justify-content: space-between; align-items: center;">
+    <div>
+      <div class="se-card-label">State</div>
+      <div class="se-card-value cyan mono" id="state-value" style="font-size: 1.4rem;">{{ job.state }}</div>
+    </div>
+    <div style="flex: 1; max-width: 60%;">
+      <div class="se-card-label" id="step-label">{{ job.current_step }}</div>
+      <div class="mono se-text-sm se-mt-1" id="pct-text">{{ job.progress_pct }}%</div>
+      <div class="se-progress se-mt-1"><div class="se-progress-fill" id="progress-fill" style="width: {{ job.progress_pct }}%;"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Error panel (only when failed) -->
+<div id="error-card" class="se-card glow-red se-mb-3" style="display: {% if job.state == 'failed' %}block{% else %}none{% endif %};">
+  <div class="se-card-label">Error</div>
+  <pre id="error-text" style="white-space: pre-wrap; color: var(--se-red); margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">{{ job.error or '' }}</pre>
+</div>
+
+<!-- Live log -->
+<div class="se-card">
+  <div class="se-flex se-gap-2" style="justify-content: space-between; align-items: baseline;">
+    <div class="se-card-label">Live log (last 12)</div>
+    <div class="se-text-xs se-text-fg2 mono" id="poll-status">polling every 2s</div>
+  </div>
+  <pre id="log-tail" class="job-log se-mt-2">{% for line in job.log[-12:] %}{{ line }}
+{% endfor %}</pre>
+</div>
+
+<style>
+  .job-log {
+    background: var(--se-bg-0);
+    border: 1px solid var(--se-line);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--se-fg-1);
+    line-height: 1.5;
+    max-height: 50vh;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    margin: 0;
+  }
+</style>
+
+<script>
+  const jobId = {{ job.id|tojson }};
+  const stateValue = document.getElementById('state-value');
+  const stepLabel = document.getElementById('step-label');
+  const pctText = document.getElementById('pct-text');
+  const progressFill = document.getElementById('progress-fill');
+  const logTail = document.getElementById('log-tail');
+  const errorCard = document.getElementById('error-card');
+  const errorText = document.getElementById('error-text');
+  const stateCard = document.getElementById('state-card');
+  const pollStatus = document.getElementById('poll-status');
+
+  let pollTimer = null;
+
+  function applyState(j) {
+    stateValue.textContent = j.state;
+    stepLabel.textContent = j.current_step;
+    pctText.textContent = j.progress_pct + '%';
+    progressFill.style.width = j.progress_pct + '%';
+
+    // Color the state card based on state
+    stateCard.className = 'se-card se-mb-3 ' + (
+      j.state === 'done' ? 'glow-violet' :
+      j.state === 'failed' ? 'glow-red' :
+      j.state === 'running' ? 'glow-cyan' : ''
+    );
+
+    if (j.error) {
+      errorCard.style.display = 'block';
+      errorText.textContent = j.error;
+    }
+
+    if (j.log_tail && j.log_tail.length) {
+      logTail.textContent = j.log_tail.join('\n') + '\n';
+      logTail.scrollTop = logTail.scrollHeight;
+    }
+
+    if (j.state === 'done') {
+      pollStatus.textContent = 'completed · redirecting in 2s...';
+      clearInterval(pollTimer);
+      setTimeout(() => {
+        if (j.result_slug) location.href = '/content/' + j.result_slug;
+      }, 2000);
+    } else if (j.state === 'failed') {
+      pollStatus.textContent = 'failed · polling stopped';
+      clearInterval(pollTimer);
+    }
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch('/content/job/' + jobId);
+      if (!res.ok) {
+        pollStatus.textContent = 'job not found';
+        clearInterval(pollTimer);
+        return;
+      }
+      const data = await res.json();
+      applyState(data);
+    } catch (err) {
+      pollStatus.textContent = 'poll error: ' + err.message;
+    }
+  }
+
+  // Initial poll + recurring
+  poll();
+  pollTimer = setInterval(poll, 2000);
+</script>
+{% endblock %}

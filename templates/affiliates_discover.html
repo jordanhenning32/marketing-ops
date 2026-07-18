@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}Discover affiliates · Shadow Edge Ops{% endblock %}
+
+{% block content %}
+<div class="se-flex se-gap-2 se-mb-3" style="justify-content: space-between; align-items: flex-end;">
+  <div>
+    <a href="/affiliates" class="se-text-xs se-text-fg2" style="text-decoration: none;">← affiliates</a>
+    <h1 class="se-h1 se-mt-1">Discover new affiliates</h1>
+    <div class="se-sub">
+      Scout scans 5 trading subreddits for affiliate / referral / promo-code mentions
+      and uses Claude to identify programs we don't yet track.
+    </div>
+  </div>
+  <form method="post" action="/affiliates/discover-reddit" id="run-form" class="se-flex se-gap-1">
+    <select name="timeframe" class="se-input" style="width: auto; margin: 0;">
+      <option value="month">past month</option>
+      <option value="year" selected>past year</option>
+      <option value="all">all time</option>
+    </select>
+    <button type="submit" class="se-btn primary">⟳ Run discovery</button>
+  </form>
+</div>
+
+{% if not reddit_creds.configured %}
+<div class="se-card glow-amber se-mb-3">
+  <div class="se-card-label">Reddit credentials required (3-minute setup, one-time)</div>
+  <div class="se-text-sm se-mt-2" style="color: var(--se-fg-1); line-height: 1.6;">
+    Reddit blocks anonymous API access. Create a free 'script' app — no Reddit
+    account login is needed at runtime, just app credentials.
+  </div>
+  <ol class="setup-list">
+    <li>Open <a href="https://www.reddit.com/prefs/apps" target="_blank" class="se-text-cyan">reddit.com/prefs/apps</a> (sign in with any Reddit account, including a fresh one)</li>
+    <li>Scroll down → click <strong>create another app...</strong> (or <strong>are you a developer? create an app...</strong>)</li>
+    <li>Pick <strong>script</strong> for the app type. Name: <code>Shadow Edge Scout</code>. Redirect URI: <code>http://localhost:8876</code> (required field, unused for read-only).</li>
+    <li>Click <strong>create app</strong>. The app appears with a <strong>personal use script</strong> ID under its name (this is your <code>REDDIT_CLIENT_ID</code>) and a <strong>secret</strong> field below it (your <code>REDDIT_CLIENT_SECRET</code>).</li>
+    <li>Add both to <code>E:/marketing-ops/.env</code> (UTF-8 no BOM):
+      <pre class="code-block">REDDIT_CLIENT_ID=your_app_id_here
+REDDIT_CLIENT_SECRET=your_secret_here
+REDDIT_USER_AGENT=windows:shadowedgeops:0.1 (by /u/your_reddit_username)</pre>
+    </li>
+    <li>Restart the Console (re-run the desktop icon). This page will unlock.</li>
+  </ol>
+  <div class="se-text-xs se-text-fg2 se-mt-2">
+    Current User-Agent that will be sent: <code>{{ reddit_creds.user_agent }}</code>
+  </div>
+</div>
+{% endif %}
+
+{% if cached %}
+<div class="se-card se-mb-3">
+  <div class="se-flex se-gap-2" style="justify-content: space-between; align-items: baseline;">
+    <div class="se-card-label">Last scan</div>
+    <div class="se-text-xs se-text-fg2 mono">{{ cached.ran_at }}</div>
+  </div>
+  <div class="se-text-sm se-text-fg2 se-mt-1" style="line-height: 1.6;">
+    {{ cached.posts_seen }} posts seen across
+    {% for s in cached.subreddits %}<span class="mono se-text-cyan">r/{{ s }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+    using terms:
+    {% for t in cached.search_terms %}<span class="mono">{{ t }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+    {% if cached.error %}<br><span class="se-text-red">⚠ {{ cached.error }}</span>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% if not candidates %}
+<div class="se-card">
+  <div class="se-text-fg2 se-text-sm">
+    {% if cached %}
+      No new candidates surfaced from the last scan. Try a wider timeframe, or click <strong>⟳ Run discovery</strong> to re-scan now.
+    {% else %}
+      No discovery has been run yet. Click <strong>⟳ Run discovery</strong> above to scan Reddit for candidates.
+      {% if not cached %}<br><br>The scan takes 30–60 seconds — Reddit + Claude analysis runs in the background.{% endif %}
+    {% endif %}
+  </div>
+</div>
+{% else %}
+
+<!-- Filter pills -->
+<div class="se-flex se-gap-1 se-mb-2" style="flex-wrap: wrap;">
+  <span class="se-text-xs se-text-fg2 se-mr-1" style="padding: 0.4rem 0;">filter:</span>
+  <button type="button" class="filter-pill active" data-filter="all">all ({{ candidates|length }})</button>
+  <button type="button" class="filter-pill" data-filter="new">new
+    ({{ candidates|selectattr('already_tracked', 'equalto', false)|list|length }})</button>
+  <button type="button" class="filter-pill" data-filter="tracked">already tracked
+    ({{ candidates|selectattr('already_tracked', 'equalto', true)|list|length }})</button>
+</div>
+
+<div class="se-grid" style="gap: 0.7rem;">
+{% for c in candidates %}
+<div class="cand-card {% if c.already_tracked %}tracked{% endif %}" data-tracked="{{ 'yes' if c.already_tracked else 'no' }}">
+  <div class="cand-head">
+    <div class="cand-head-left">
+      <strong class="cand-name">{{ c.name }}</strong>
+      {% if c.category %}<span class="se-pill stage-researched cand-cat">{{ c.category.replace('_', ' ') }}</span>{% endif %}
+      {% if c.already_tracked %}<span class="se-pill stage-posted">already tracked</span>{% endif %}
+    </div>
+    <div class="se-flex se-gap-1">
+      {% if c.affiliate_url_guess %}
+        <a href="{{ c.affiliate_url_guess }}" target="_blank" class="se-btn" style="font-size: 0.78rem;">↗ open guess</a>
+      {% endif %}
+      {% if not c.already_tracked %}
+        <form method="post" action="/affiliates/discover/import" style="margin: 0;">
+          <input type="hidden" name="name" value="{{ c.name }}" />
+          <input type="hidden" name="affiliate_url_guess" value="{{ c.affiliate_url_guess or '' }}" />
+          <input type="hidden" name="why_relevant" value="{{ c.why_relevant or '' }}" />
+          <input type="hidden" name="category" value="{{ c.category or '' }}" />
+          <button type="submit" class="se-btn primary" style="font-size: 0.78rem;">+ Track this</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if c.why_relevant %}
+  <div class="cand-rationale">{{ c.why_relevant }}</div>
+  {% endif %}
+
+  {% if c.sources %}
+  <div class="cand-sources">
+    <span class="se-card-label" style="display: inline; margin-right: 0.5rem;">Mentions:</span>
+    {% for s in c.sources %}
+      <a href="{{ s.url }}" target="_blank" class="src-link mono">
+        r/{{ s.subreddit }}<span class="se-text-fg2"> · score {{ s.score }} · </span>{{ s.title[:60] }}{% if s.title|length > 60 %}…{% endif %}
+      </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+<style>
+  .setup-list {
+    margin: 0.6rem 0 0 1.2rem;
+    color: var(--se-fg-1);
+    font-size: 0.88rem;
+    line-height: 1.7;
+  }
+  .setup-list li { margin-bottom: 0.4rem; }
+  .setup-list code {
+    background: var(--se-bg-2);
+    border: 1px solid var(--se-line);
+    border-radius: 4px;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.82em;
+    color: var(--se-cyan);
+    word-break: break-all;
+  }
+  .code-block {
+    background: var(--se-bg-0);
+    border: 1px solid var(--se-line);
+    border-radius: 6px;
+    padding: 0.7rem 0.95rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--se-cyan);
+    line-height: 1.5;
+    margin: 0.5rem 0 0 0;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .filter-pill {
+    padding: 0.35rem 0.75rem;
+    background: var(--se-bg-2);
+    border: 1px solid var(--se-line);
+    border-radius: 999px;
+    color: var(--se-fg-1);
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 500;
+    transition: all 120ms ease;
+  }
+  .filter-pill:hover { border-color: var(--se-cyan); color: var(--se-cyan); }
+  .filter-pill.active {
+    background: linear-gradient(90deg, rgba(34,211,238,0.18), rgba(167,139,250,0.18));
+    border-color: var(--se-cyan);
+    color: var(--se-fg-0);
+  }
+
+  .cand-card {
+    background: var(--se-bg-1);
+    border: 1px solid var(--se-line);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    transition: border-color 120ms ease;
+  }
+  .cand-card:hover { border-color: rgba(34, 211, 238, 0.35); }
+  .cand-card.tracked { opacity: 0.55; }
+
+  .cand-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .cand-head-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .cand-name { font-size: 0.95rem; color: var(--se-fg-0); }
+  .cand-cat { text-transform: lowercase; }
+
+  .cand-rationale {
+    margin-top: 0.5rem;
+    color: var(--se-fg-1);
+    font-size: 0.85rem;
+    line-height: 1.55;
+  }
+
+  .cand-sources {
+    margin-top: 0.7rem;
+    padding-top: 0.7rem;
+    border-top: 1px dashed var(--se-line);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .src-link {
+    display: inline-block;
+    color: var(--se-fg-1);
+    text-decoration: none;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .src-link:hover { color: var(--se-cyan); }
+</style>
+
+<script>
+  // Live filter pills
+  const pills = document.querySelectorAll('.filter-pill');
+  const cards = document.querySelectorAll('.cand-card');
+  pills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      pills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      const filter = pill.dataset.filter;
+      cards.forEach(c => {
+        if (filter === 'all') c.style.display = '';
+        else if (filter === 'new') c.style.display = c.dataset.tracked === 'yes' ? 'none' : '';
+        else if (filter === 'tracked') c.style.display = c.dataset.tracked === 'yes' ? '' : 'none';
+      });
+    });
+  });
+
+  // Async submit on the discover form so we get the live job page
+  const runForm = document.getElementById('run-form');
+  if (runForm) {
+    runForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(runForm);
+      const btn = runForm.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      const origText = btn.textContent;
+      btn.textContent = 'Starting...';
+      try {
+        const res = await fetch('/affiliates/discover-reddit', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.ok && data.redirect) {
+          location.href = data.redirect;
+        } else {
+          alert('Failed: ' + (data.error || 'unknown'));
+          btn.disabled = false;
+          btn.textContent = origText;
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+    });
+  }
+</script>
+{% endblock %}

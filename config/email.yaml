@@ -1,0 +1,22 @@
+provider: none
+send_enabled: false
+credential_env: EMAIL_PROVIDER_API_KEY
+from_name: Shadow Edge Tools
+from_email: ops@shadowedgetools.com
+reply_to: support@shadowedgetools.com
+sequence:
+  - id: confirmation
+    delay_days: 0
+    subject: "Confirmed: your Shadow Edge risk-control checklist"
+  - id: risk-rule
+    delay_days: 1
+    subject: One rule before the first order
+  - id: drawdown-guard
+    delay_days: 3
+    subject: Where drawdown discipline breaks
+  - id: order-lock
+    delay_days: 5
+    subject: Removing one bad-click failure mode
+  - id: demo
+    delay_days: 7
+    subject: See the Shadow Edge workflow

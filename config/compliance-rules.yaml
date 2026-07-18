@@ -1,0 +1,22 @@
+banned_phrases:
+  - guaranteed profit
+  - guaranteed profits
+  - guaranteed payout
+  - pass your prop firm
+  - make you profitable
+  - never lose
+  - risk-free
+  - secret strategy
+  - get rich
+  - buy now before it is too late
+  - limited time only
+  - cold dm
+profit_claim_patterns:
+  - "\\$\\d+[\\d,]*(?:\\.\\d+)?\\s*(?:profit|payout|day|week|month)"
+  - "\\b\\d+%\\s*(?:win rate|return|roi|profit)\\b"
+  - "\\b(?:double|triple) your account\\b"
+fake_story_markers:
+  - my funded account
+  - when I passed
+  - my payout
+  - I made $

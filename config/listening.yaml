@@ -1,0 +1,124 @@
+# Social listening + assisted-engagement configuration.
+#
+# Posture (locked): agents LISTEN automatically and DRAFT replies; a human
+# reviews and posts. Nothing is ever posted automatically by this system.
+#
+#   - Reddit     : read-only search via free app credentials (REDDIT_CLIENT_ID/SECRET)
+#   - Stocktwits : public symbol streams, keyword-filtered, no auth (rate-limited)
+#   - X / Twitter: requires the PAID X API (X_BEARER_TOKEN). Blocked until set.
+#   - Forums     : LISTEN-ONLY. futures.io / EliteTrader / NinjaTrader ban
+#                  undisclosed vendors — never auto-drafted, never auto-posted.
+
+# Topics we want to find people talking about. Matching is case-insensitive
+# substring; keep these as natural phrases traders actually use.
+keywords:
+  - risk management
+  - risk-management
+  - position sizing
+  - position size
+  - blew my account
+  - blew up my account
+  - blown account
+  - drawdown
+  - max drawdown
+  - revenge trading
+  - revenge traded
+  - stop loss
+  - stop-loss
+  - moving my stop
+  - cant stop overtrading
+  - over-trading
+  - overtrading
+  - daily loss limit
+  - trailing drawdown
+  - prop firm rules
+  - failed my eval
+  - failed the eval
+  - blew the eval
+  - discipline
+  - emotional trading
+
+# Some platforms have shorter, ticker-heavy posts where exact phrases are rare.
+# These are added only for that source before LLM triage filters quality.
+source_keywords:
+  stocktwits:
+    - risk
+    - loss
+    - stop
+    - sizing
+    - funded
+    - eval
+    - prop
+
+# Per-source settings -------------------------------------------------------
+
+sources:
+  reddit:
+    enabled: true
+    # Subreddits where futures / prop / NinjaTrader risk talk happens.
+    subreddits:
+      - FuturesTrading
+      - Daytrading
+      - propfirm
+      - RealDayTrading
+      - Trading
+      - NinjaTrader
+      - proptrading
+    timeframe: month          # day | week | month | year | all
+    limit_per_query: 15
+    engageable: true          # replies may be DRAFTED for human posting
+
+  stocktwits:
+    enabled: true
+    # Futures symbols whose streams we scan, then keyword-filter the messages.
+    symbols:
+      - ES_F
+      - NQ_F
+      - CL_F
+      - GC_F
+      - YM_F
+      - RTY_F
+      - ZB_F
+      - ZN_F
+    limit_per_symbol: 30
+    engageable: true
+
+  x:
+    enabled: false            # requires X_BEARER_TOKEN (paid API)
+    bearer_env: X_BEARER_TOKEN
+    max_results: 25
+    engageable: true
+
+  forums:
+    enabled: true
+    # Listen-only. We surface these so YOU can engage as a disclosed vendor;
+    # the system never drafts or posts here.
+    engageable: false
+    note: >
+      futures.io, EliteTrader, and the NinjaTrader forums ban undisclosed
+      vendor promotion. Engage only from a disclosed vendor account, by hand.
+
+# Scoring -------------------------------------------------------------------
+# Claude scores each found post for how good an engagement opportunity it is.
+scoring:
+  model_env: LISTENING_MODEL          # defaults to claude-sonnet-4-6
+  # Only DRAFT replies for opportunities at/above this score (0.0–1.0).
+  draft_threshold: 0.6
+  # Hard cap on how many replies we draft per scan (controls Claude cost and
+  # keeps you from posting at spammy volume).
+  max_drafts_per_run: 8
+
+# How drafted replies must behave. These are injected into the drafting prompt.
+reply_guidelines:
+  # The funnel is PROFILE-BASED. Never paste the product link into a reply.
+  include_link: false
+  link: https://shadowedgetools.com
+  max_chars: 700
+  rules:
+    - Lead with genuine, specific help for the exact problem they described.
+    - Sound like an experienced futures trader, not a brand or a bot.
+    - Never paste a link or tell them to visit a site.
+    - Do not name-drop Shadow Edge Tools unless it is truly the natural answer;
+      if you do, disclose that you're affiliated in the same sentence.
+    - No hype, no emojis-as-decoration, no "DM me", no growth-hacky phrasing.
+    - If you have nothing genuinely useful to add, return an empty reply.

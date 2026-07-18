@@ -1,0 +1,42 @@
+# Sources monitored by the Scout agent (next session)
+# X is excluded for now (paid API). Jordan is the human Scout for X.
+
+reddit:
+  subreddits:
+    - FuturesTrading
+    - Daytrading
+    - propfirm
+    - RealDayTrading
+    - Trading
+    - Daytrader
+  search_terms:
+    - "trailing drawdown"
+    - "daily loss limit"
+    - "blew my account"
+    - "auto flatten"
+    - "ninjatrader"
+    - "Apex trader funding"
+    - "Topstep"
+    - "MyFundedFutures"
+    - "Tradeify"
+
+rss:
+  prop_firm_blogs:
+    - https://apextraderfunding.com/feed/
+    - https://www.topstep.com/feed/
+  ninjatrader:
+    - https://ninjatrader.com/feed/
+  futures_news:
+    - https://www.cmegroup.com/rss/news.xml
+
+# Web pages to check on a daily cadence (no RSS)
+http_pages:
+  - https://apextraderfunding.com/rules
+  - https://www.topstep.com/rules
+  - https://myfundedfutures.com/rules
+
+# Briefing tuning
+briefing:
+  max_engagement_targets: 5
+  max_news_items: 3
+  max_age_hours: 36

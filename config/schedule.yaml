@@ -1,0 +1,19 @@
+daily_sequence:
+  - agent: scout
+    suggested_time: "07:30 America/New_York"
+  - agent: strategy
+    suggested_time: "08:00 America/New_York"
+  - agent: creative
+    suggested_time: "08:15 America/New_York"
+  - agent: compliance
+    suggested_time: "08:45 America/New_York"
+  - agent: distribution
+    suggested_time: "09:00 America/New_York"
+  - agent: email
+    suggested_time: "09:10 America/New_York"
+  - agent: analytics
+    suggested_time: "16:30 America/New_York"
+  - agent: optimizer
+    suggested_time: "16:45 America/New_York"
+launcher: run-hermes-team.bat --dry-run
+live_actions_default: false

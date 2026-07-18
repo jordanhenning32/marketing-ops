@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}YouTube | Shadow Edge Ops{% endblock %}
+{% block content %}
+<section class="se-page-header">
+  <div>
+    <h1>YouTube Performance</h1>
+    <p class="se-muted">What's actually landing. Pulled live from the YouTube Data API (views / likes / comments), stored as a time series so each refresh shows movement since the last pull.</p>
+  </div>
+</section>
+
+{% if msg %}<div class="se-card" style="border-left:3px solid #43a047;">{{ msg }}</div>{% endif %}
+{% if err %}<div class="se-card" style="border-left:3px solid #e53935;">{{ err }}</div>{% endif %}
+
+{# Connection + one-time setup — the single home for YouTube setup, at the top #}
+{% include "_youtube_setup.html" %}
+
+{% if editor_brief %}
+<div class="se-card" style="border-left:3px solid #22d3ee;">
+  <h2 style="margin-top:0;">🎬 Editor's read</h2>
+  <p class="se-muted" style="margin-top:-.4rem;">Auto-applied as guidance to the next video you ingest. Directional — weighted by views.</p>
+  <pre class="render-md">{{ editor_brief }}</pre>
+</div>
+{% endif %}
+
+<div class="se-card" style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+  <div>
+    {% if channel %}
+      <strong style="font-size:1.1rem;">{{ channel.title }}</strong>
+      <div class="se-text-sm se-text-fg2" style="margin-top:.3rem;">
+        <strong>{{ channel.subscribers }}</strong> subscribers ·
+        <strong>{{ channel.views }}</strong> total views
+        {%- if channel.delta_views is not none and channel.delta_views != 0 %} <span style="color:#43a047;">({{ '%+d'|format(channel.delta_views) }})</span>{% endif %} ·
+        <strong>{{ channel.videos }}</strong> videos
+      </div>
+    {% else %}
+      <span class="se-muted">No channel stats yet.</span>
+    {% endif %}
+    {% if last_pull %}<div class="se-text-xs se-text-fg2" style="margin-top:.3rem;">Last pull: {{ last_pull }}</div>{% endif %}
+  </div>
+  <div class="se-flex se-gap-1" style="flex-wrap:wrap;">
+    <form method="post" action="/youtube/refresh" style="margin:0;">
+      <button class="se-btn primary" type="submit">↻ Refresh stats</button>
+    </form>
+    {% if connected %}
+    <form method="post" action="/youtube/backfill-links" style="margin:0;">
+      <button class="se-btn" type="submit" title="Preview which published videos would get the tracked /checklist link">🔗 Preview link backfill</button>
+    </form>
+    <form method="post" action="/youtube/backfill-links" style="margin:0;" onsubmit="return confirm('Update your published video descriptions to add the tracked /checklist link? (You can re-edit descriptions anytime.)');">
+      <input type="hidden" name="apply" value="1">
+      <button class="se-btn" type="submit">✓ Apply backfill</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% if connected %}<p class="se-text-xs se-text-fg2" style="margin:.4rem 0 0;">Link backfill adds the tracked <code>/checklist</code> link to already-published videos so their views funnel + attribute. Needs edit access — if Apply errors, click Connect/Reconnect above to grant it, then retry.</p>{% endif %}
+
+<div class="se-card">
+  <table class="se-table">
+    <thead>
+      <tr><th>#</th><th>Video</th><th style="text-align:right;">Views</th><th style="text-align:right;">Δ</th><th style="text-align:right;">Likes</th><th style="text-align:right;">Comments</th><th>Privacy</th><th>Source run</th></tr>
+    </thead>
+    <tbody>
+      {% for v in videos %}
+      <tr>
+        <td class="se-text-fg2">{{ loop.index }}</td>
+        <td>
+          <a href="{{ v.url }}" target="_blank" rel="noopener">{{ v.title or v.video_id }}</a>
+          {% if not v.tracked %}<span class="se-text-xs se-text-fg2" title="Uploaded outside the content pipeline — no local source clip">· untracked</span>{% endif %}
+        </td>
+        <td style="text-align:right;"><strong>{{ v.views }}</strong></td>
+        <td style="text-align:right;">
+          {%- if v.delta_views is none %}<span class="se-text-fg2">·</span>
+          {%- elif v.delta_views > 0 %}<span style="color:#43a047;">+{{ v.delta_views }}</span>
+          {%- elif v.delta_views < 0 %}<span style="color:#e53935;">{{ v.delta_views }}</span>
+          {%- else %}<span class="se-text-fg2">0</span>{% endif %}
+        </td>
+        <td style="text-align:right;">{{ v.likes }}</td>
+        <td style="text-align:right;">{{ v.comments }}</td>
+        <td class="se-text-sm">{{ v.privacy or '—' }}</td>
+        <td class="se-text-sm">{% if v.tracked and v.slug %}<a href="/content/{{ v.slug }}">{{ v.slug[:28] }}…</a>{% else %}<span class="se-text-fg2">—</span>{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="se-muted">No stats stored yet. Click <strong>Refresh stats</strong> to pull from YouTube.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="se-text-xs se-text-fg2">
+  Scope note: views, likes and comments come from the YouTube Data API and need no extra permission.
+  Watch-time, average-view-duration and traffic sources require the YouTube Analytics API
+  (scope <code>yt-analytics.readonly</code>), which isn't authorized yet — add it and re-connect to unlock them.
+</p>
+{% endblock %}

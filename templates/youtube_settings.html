@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}YouTube setup · Shadow Edge Ops{% endblock %}
+
+{% block content %}
+<div class="se-flex se-gap-2 se-mb-3" style="justify-content: space-between; align-items: flex-end;">
+  <div>
+    <a href="/youtube" class="se-text-xs se-text-fg2" style="text-decoration: none;">&larr; YouTube</a>
+    <h1 class="se-h1 se-mt-1">YouTube setup</h1>
+    <div class="se-sub">One-time OAuth setup, then auto-upload clips with one click. This same card lives on the <a href="/youtube" class="se-text-cyan">YouTube tab</a>.</div>
+  </div>
+</div>
+
+{% include "_youtube_setup.html" %}
+{% endblock %}

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Performance | Shadow Edge Ops{% endblock %}
+
+{% macro spark(t) %}{% if t.spark %}<svg class="spark spark-{{ t.dir }}" viewBox="0 0 80 18" preserveAspectRatio="none"><polyline points="{{ t.spark }}"/></svg>{% endif %}{% endmacro %}
+
+{% macro mcard(m, sb) %}
+{% set t = sb.trends[m.key] %}
+<div class="metric-card">
+  <div class="metric-label">{{ m.label }}</div>
+  <div class="metric-value-row">
+    <span class="metric-value">{% if sb['values'][m.key] is not none %}{% if m.prefix %}{{ m.prefix }}{% endif %}{{ sb['values'][m.key] }}{% else %}—{% endif %}</span>
+    {{ spark(t) }}
+  </div>
+  {% if t.delta %}<span class="delta delta-{{ t.dir }}">{{ t.delta }} <span class="delta-note">vs last</span></span>{% endif %}
+  <form method="post" action="/performance/metric" class="metric-form">
+    <input type="hidden" name="metric" value="{{ m.key }}">
+    <input class="metric-input" name="value" placeholder="update" autocomplete="off">
+    <button class="se-btn metric-set" type="submit">Set</button>
+  </form>
+</div>
+{% endmacro %}
+
+{% block content %}
+<section class="se-page-header">
+  <div><h1>Performance</h1><p class="se-muted">Your growth scoreboard — every metric is saved over time, so the sparklines show the trend, not just today.</p></div>
+</section>
+
+{% if msg %}<div class="se-card" style="border-left: 3px solid #34d399; margin-bottom: 1rem;">✅ {{ msg }}</div>{% endif %}
+{% if err %}<div class="se-card glow-amber" style="margin-bottom: 1rem;">⚠ {{ err }}</div>{% endif %}
+
+<!-- Sales & goal -->
+<div class="se-card glow-cyan se-mb-3">
+  <div class="se-flex" style="justify-content: space-between; align-items: baseline;">
+    <div class="se-card-label">💰 Sales &amp; goal</div>
+    <div class="se-text-xs se-text-fg2">customers &amp; leads snapshotted daily · revenue/trials manual from Stripe</div>
+  </div>
+  <div class="metric-grid se-mt-2">
+    {% if sb.goal %}
+    <div class="metric-card">
+      <div class="metric-label">Customers</div>
+      <div class="metric-value-row"><span class="metric-value cyan">{{ sb.goal.customers }}<span class="metric-sub"> / {{ sb.goal.target_customers }}</span></span>{{ spark(sb.customers_trend) }}</div>
+      {% if sb.customers_trend.delta %}<span class="delta delta-{{ sb.customers_trend.dir }}">{{ sb.customers_trend.delta }} <span class="delta-note">vs last</span></span>{% endif %}
+    </div>
+    <div class="metric-card"><div class="metric-label">To go</div><div class="metric-value">{{ sb.goal.customers_remaining }}</div></div>
+    <div class="metric-card"><div class="metric-label">Days left</div><div class="metric-value">{{ sb.goal.days_remaining if sb.goal.days_remaining is not none else '—' }}</div></div>
+    <div class="metric-card"><div class="metric-label">Sales/day needed</div><div class="metric-value amber">{{ sb.goal.sales_per_day_required if sb.goal.sales_per_day_required is not none else '—' }}</div></div>
+    {% endif %}
+    <div class="metric-card">
+      <div class="metric-label">Email leads <span class="auto-badge">AUTO</span></div>
+      <div class="metric-value-row"><span class="metric-value cyan">{{ sb.leads.count if sb.leads.count is not none else '—' }}</span>{{ spark(sb.leads.trend) }}</div>
+      {% if sb.leads.trend.delta %}<span class="delta delta-{{ sb.leads.trend.dir }}">{{ sb.leads.trend.delta }} <span class="delta-note">vs last</span></span>{% endif %}
+    </div>
+    {% for s in sb.sections if s.key == 'sales' %}{% for m in s.metrics %}{{ mcard(m, sb) }}{% endfor %}{% endfor %}
+  </div>
+</div>
+
+<!-- YouTube (auto) -->
+<div class="se-card glow-violet se-mb-3">
+  <div class="se-flex" style="justify-content: space-between; align-items: baseline;">
+    <div class="se-card-label">📺 YouTube <span class="auto-badge">AUTO</span></div>
+    <div class="se-text-xs se-text-fg2">{% if sb.youtube.last_pull %}pulled {{ sb.youtube.last_pull }} · {% endif %}<a href="/youtube" class="se-text-cyan">details →</a></div>
+  </div>
+  {% if sb.youtube.needs_reconnect %}
+  <div class="se-card" style="border-left:3px solid #e53935; margin:.6rem 0 0;">
+    <strong>⚠ Reconnect YouTube</strong> — token expired, so these numbers are frozen at the last good pull.
+    <a href="/youtube" class="se-text-cyan"><strong>Reconnect &rarr;</strong></a>
+  </div>
+  {% endif %}
+  {% if sb.youtube.connected %}
+  <div class="metric-grid se-mt-2">
+    <div class="metric-card">
+      <div class="metric-label">Subscribers</div>
+      <div class="metric-value-row"><span class="metric-value violet">{{ sb.youtube.subscribers }}</span>{{ spark(sb.youtube.subs_trend) }}</div>
+      {% if sb.youtube.subs_trend.delta %}<span class="delta delta-{{ sb.youtube.subs_trend.dir }}">{{ sb.youtube.subs_trend.delta }} <span class="delta-note">vs last</span></span>{% endif %}
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Total views</div>
+      <div class="metric-value-row"><span class="metric-value">{{ sb.youtube.views }}</span>{{ spark(sb.youtube.views_trend) }}</div>
+      {% if sb.youtube.views_trend.delta %}<span class="delta delta-{{ sb.youtube.views_trend.dir }}">{{ sb.youtube.views_trend.delta }} <span class="delta-note">vs last</span></span>{% endif %}
+    </div>
+    <div class="metric-card"><div class="metric-label">Likes</div><div class="metric-value">{{ sb.youtube.likes }}</div></div>
+    <div class="metric-card"><div class="metric-label">Comments</div><div class="metric-value">{{ sb.youtube.comments }}</div></div>
+    <div class="metric-card"><div class="metric-label">Videos</div><div class="metric-value">{{ sb.youtube.videos }}</div></div>
+  </div>
+  {% if sb.youtube.top %}
+  <div class="se-card-label se-mt-3">Top videos by views</div>
+  <table class="se-table se-mt-1">
+    <thead><tr><th>Video</th><th style="text-align:right;">Views</th><th style="text-align:right;">Likes</th></tr></thead>
+    <tbody>
+    {% for v in sb.youtube.top %}
+      <tr>
+        <td><a href="{{ v.url }}" target="_blank" class="se-text-cyan se-text-sm">{{ v.title[:64] }}</a></td>
+        <td class="mono" style="text-align:right;">{{ v.views }}</td>
+        <td class="mono" style="text-align:right;">{{ v.likes }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% else %}
+  <div class="se-text-fg2 se-text-sm se-mt-2">Connect YouTube on the <a href="/youtube" class="se-text-cyan">YouTube tab</a> and hit refresh to auto-fill.</div>
+  {% endif %}
+</div>
+
+<!-- Website (GA4 auto) — full width like YouTube -->
+<div class="se-card glow-cyan se-mb-3">
+  <div class="se-flex" style="justify-content: space-between; align-items: baseline;">
+    <div class="se-card-label">🌐 Website <span class="auto-badge">GA4</span></div>
+    <div class="se-flex se-gap-1" style="align-items: baseline;">
+      {% if sb.ga4_configured %}
+        <span class="se-text-xs" style="color: #4ade80;">● connected{% if sb.ga4_last_pull %} · pulled {{ sb.ga4_last_pull }}{% endif %}</span>
+        <form method="post" action="/performance/ga4-refresh" style="margin: 0;"><button type="submit" class="se-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">↻ Pull GA4</button></form>
+      {% else %}
+        <span class="se-text-xs se-text-fg2">add the GA4 service-account key to connect</span>
+      {% endif %}
+    </div>
+  </div>
+  {% if sb.ga4_configured %}
+  <div class="metric-grid se-mt-2">
+    <div class="metric-card">
+      <div class="metric-label">Visitors (30d)</div>
+      <div class="metric-value-row"><span class="metric-value cyan">{{ sb['values']['website_visitors'] if sb['values']['website_visitors'] is not none else '—' }}</span>{{ spark(sb.trends['website_visitors']) }}</div>
+      {% set t = sb.trends['website_visitors'] %}{% if t.delta %}<span class="delta delta-{{ t.dir }}">{{ t.delta }} <span class="delta-note">vs last</span></span>{% endif %}
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Page views (30d)</div>
+      <div class="metric-value-row"><span class="metric-value">{{ sb['values']['website_pageviews'] if sb['values']['website_pageviews'] is not none else '—' }}</span>{{ spark(sb.trends['website_pageviews']) }}</div>
+      {% set t = sb.trends['website_pageviews'] %}{% if t.delta %}<span class="delta delta-{{ t.dir }}">{{ t.delta }} <span class="delta-note">vs last</span></span>{% endif %}
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Avg time on site</div>
+      <div class="metric-value-row"><span class="metric-value">{% if sb['values']['website_avg_time'] is not none %}{% set asec = sb['values']['website_avg_time']|int %}{% if asec >= 60 %}{{ asec // 60 }}m {{ '%02d'|format(asec % 60) }}s{% else %}{{ asec }}s{% endif %}{% else %}—{% endif %}</span>{{ spark(sb.trends['website_avg_time']) }}</div>
+      <div class="se-text-xs se-text-fg2" style="margin-top:0.15rem;">avg session length</div>
+    </div>
+  </div>
+  {% if sb.ga4 and sb.ga4.top_pages %}
+  <div class="se-card-label se-mt-3">Top pages by views</div>
+  <table class="se-table se-mt-1">
+    <thead><tr><th>Page</th><th style="text-align:right;">Views</th></tr></thead>
+    <tbody>
+    {% for p in sb.ga4.top_pages %}
+      <tr>
+        <td>
+          <a href="https://www.shadowedgetools.com{{ p.path }}" target="_blank" class="se-text-cyan se-text-sm mono">{{ p.path }}</a>
+          {% if p.path == '/' %}<span class="se-text-fg2 se-text-xs">Home</span>{% elif p.path == '/pricing' %}<span class="se-text-fg2 se-text-xs">Pricing</span>{% elif p.path == '/about' %}<span class="se-text-fg2 se-text-xs">About</span>{% endif %}
+        </td>
+        <td class="mono" style="text-align:right;">{{ p.views }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% else %}
+  <div class="se-text-fg2 se-text-sm se-mt-2">Add the GA4 service-account key to auto-fill website stats.</div>
+  {% endif %}
+</div>
+
+<!-- The other social channels (manual) -->
+<div class="se-grid cols-2 scoreboard-grid">
+  {% for s in sb.sections if s.key not in ['sales', 'website'] %}
+  <div class="se-card">
+    <div class="se-flex" style="justify-content: space-between; align-items: baseline;">
+      <div class="se-card-label">{{ s.label }}{% if s.key == 'tiktok' and sb.tiktok_configured %} <span class="auto-badge">AUTO</span>{% endif %}</div>
+      {% if s.key == 'tiktok' and sb.tiktok_configured %}
+      <div class="se-flex se-gap-1" style="align-items: baseline;">
+        <span class="se-text-xs" style="color: #4ade80;">● connected{% if sb.tiktok_last_pull %} · pulled {{ sb.tiktok_last_pull }}{% endif %}</span>
+        <form method="post" action="/performance/tiktok-refresh" style="margin: 0;"><button type="submit" class="se-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">↻ Pull TikTok</button></form>
+      </div>
+      {% else %}
+      <div class="se-text-xs se-text-fg2">{{ s.source }}</div>
+      {% endif %}
+    </div>
+    <div class="metric-grid se-mt-2">
+      {% for m in s.metrics %}{{ mcard(m, sb) }}{% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Bulk import -->
+<details class="se-mt-3">
+  <summary class="se-text-sm se-text-fg2" style="cursor: pointer;">⌄ Bulk import metrics (CSV)</summary>
+  <div class="se-card se-mt-2">
+    <p class="se-muted se-text-xs">Schema: <code>date,campaign_id,metric,value,source,status</code> · status may be measured, blocked, or not_configured. Every import is appended — history is never overwritten.</p>
+    <form method="post" action="/performance/import-csv" enctype="multipart/form-data" class="se-flex se-gap-1">
+      <input class="se-input" type="file" name="file" accept=".csv" required>
+      <button class="se-btn primary" type="submit">Import CSV</button>
+    </form>
+  </div>
+</details>
+
+<style>
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.6rem; }
+  .metric-card { background: var(--se-bg-1); border: 1px solid var(--se-line); border-radius: 8px; padding: 0.6rem 0.7rem; }
+  .metric-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--se-fg-2); }
+  .metric-value-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.4rem; }
+  .metric-value { font-size: 1.45rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--se-fg-0); margin-top: 0.15rem; line-height: 1.1; word-break: break-word; }
+  .metric-value.cyan { color: var(--se-cyan); }
+  .metric-value.violet { color: var(--se-violet); }
+  .metric-value.amber { color: #fbbf24; }
+  .metric-sub { font-size: 0.85rem; color: var(--se-fg-2); font-weight: 500; }
+  .spark { width: 54px; height: 16px; flex: 0 0 auto; overflow: visible; }
+  .spark polyline { fill: none; stroke: var(--se-fg-2); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+  .spark.spark-up polyline { stroke: #4ade80; }
+  .spark.spark-down polyline { stroke: #f87171; }
+  .delta { display: inline-block; font-size: 0.66rem; font-weight: 700; margin-top: 0.2rem; }
+  .delta.delta-up { color: #4ade80; }
+  .delta.delta-down { color: #f87171; }
+  .delta-note { color: var(--se-fg-2); font-weight: 400; }
+  .metric-form { display: flex; gap: 0.25rem; margin-top: 0.45rem; }
+  .metric-input { flex: 1; min-width: 0; background: var(--se-bg-2); border: 1px solid var(--se-line); border-radius: 5px; padding: 0.25rem 0.4rem; color: var(--se-fg-0); font-size: 0.74rem; outline: none; font-family: 'Inter', sans-serif; }
+  .metric-input:focus { border-color: var(--se-cyan); box-shadow: 0 0 0 2px rgba(34,211,238,0.12); }
+  .metric-set { font-size: 0.68rem; padding: 0.25rem 0.5rem; }
+  .auto-badge { font-size: 0.54rem; font-weight: 700; letter-spacing: 0.04em; background: rgba(167,139,250,0.16); color: var(--se-violet); padding: 0.12rem 0.38rem; border-radius: 4px; vertical-align: middle; margin-left: 0.3rem; }
+  .scoreboard-grid { gap: 1rem; align-items: start; }
+</style>
+{% endblock %}

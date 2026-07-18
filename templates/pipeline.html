@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Pipeline · Shadow Edge Ops{% endblock %}
+
+{% block content %}
+<h1 class="se-h1">Pipeline</h1>
+<div class="se-sub">Partnership and influencer outreach · today is <span class="mono">{{ today }}</span></div>
+
+{% macro due_pill(item) -%}
+  {% if item.due is none %}
+    <span class="se-pill due-future">no date</span>
+  {% elif item.due|string < today %}
+    <span class="se-pill due-overdue">overdue · {{ item.due }}</span>
+  {% elif item.due|string == today %}
+    <span class="se-pill due-today">today</span>
+  {% else %}
+    <span class="se-pill due-future mono">{{ item.due }}</span>
+  {% endif %}
+{%- endmacro %}
+
+<div class="se-card se-mb-3">
+  <div class="se-card-label">Prop firm partnerships</div>
+  <table class="se-table se-mt-2">
+    <thead>
+      <tr>
+        <th>Firm</th>
+        <th>Stage</th>
+        <th>Last contact</th>
+        <th>Next action</th>
+        <th>Due</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in partnerships %}
+      <tr>
+        <td><strong>{{ p.name }}</strong></td>
+        <td><span class="se-pill stage-{{ p.stage }}">{{ p.stage }}</span></td>
+        <td class="se-text-fg2 mono se-text-sm">{{ p.last_contact or '—' }}</td>
+        <td class="se-text-sm">{{ p.next_action or '—' }}</td>
+        <td>{{ due_pill(p) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="se-text-fg2">No partnerships tracked yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="se-text-xs se-text-fg2 se-mt-2">
+    Edit in <a href="/state?file=partnerships.md" class="se-text-cyan">State Editor → partnerships.md</a>
+  </div>
+</div>
+
+<div class="se-card">
+  <div class="se-card-label">Influencer / creator seeding</div>
+  <table class="se-table se-mt-2">
+    <thead>
+      <tr>
+        <th>Creator</th>
+        <th>Stage</th>
+        <th>Last contact</th>
+        <th>Next action</th>
+        <th>Due</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in influencers %}
+      <tr>
+        <td><strong>{{ i.name }}</strong></td>
+        <td><span class="se-pill stage-{{ i.stage }}">{{ i.stage }}</span></td>
+        <td class="se-text-fg2 mono se-text-sm">{{ i.last_contact or '—' }}</td>
+        <td class="se-text-sm">{{ i.next_action or '—' }}</td>
+        <td>{{ due_pill(i) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="se-text-fg2">No influencers tracked yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="se-text-xs se-text-fg2 se-mt-2">
+    Edit in <a href="/state?file=influencers.md" class="se-text-cyan">State Editor → influencers.md</a>
+  </div>
+</div>
+{% endblock %}

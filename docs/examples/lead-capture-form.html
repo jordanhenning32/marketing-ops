@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shadow Edge Lead Capture Example</title>
+</head>
+<body>
+  <form id="shadow-edge-lead-form">
+    <label>Email
+      <input name="email" type="email" required autocomplete="email">
+    </label>
+    <input name="campaign_id" type="hidden" value="20260530-risk-control-multiplier">
+    <input name="utm_source" type="hidden">
+    <input name="utm_medium" type="hidden">
+    <input name="utm_content" type="hidden">
+    <input name="landing_page" type="hidden">
+    <label>
+      <input name="consent" type="checkbox" required>
+      I agree to receive Shadow Edge Tools emails about trader risk-control workflows. I can unsubscribe anytime.
+    </label>
+    <button type="submit">Send me the checklist</button>
+    <p id="shadow-edge-lead-status" role="status"></p>
+  </form>
+
+  <script>
+    const API_URL = 'http://localhost:8876/api/leads';
+    const OPTIONAL_PUBLIC_LEAD_API_TOKEN = ''; // If configured, pass through your backend. Do not expose private tokens in public JS.
+    const params = new URLSearchParams(window.location.search);
+    const form = document.getElementById('shadow-edge-lead-form');
+    form.elements.utm_source.value = params.get('utm_source') || 'website';
+    form.elements.utm_medium.value = params.get('utm_medium') || 'organic';
+    form.elements.utm_content.value = params.get('utm_content') || 'lead-form';
+    form.elements.landing_page.value = window.location.href;
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.consent = Boolean(form.elements.consent.checked);
+      const headers = {'Content-Type': 'application/json'};
+      if (OPTIONAL_PUBLIC_LEAD_API_TOKEN) headers['x-shadowedge-token'] = OPTIONAL_PUBLIC_LEAD_API_TOKEN;
+      const res = await fetch(API_URL, {method: 'POST', headers, body: JSON.stringify(data)});
+      const body = await res.json();
+      document.getElementById('shadow-edge-lead-status').textContent = res.ok ? 'Confirmed. Check your email.' : (body.detail || 'Could not capture lead.');
+    });
+  </script>
+</body>
+</html>

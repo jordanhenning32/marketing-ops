@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Leads | Shadow Edge Ops{% endblock %}
+{% block content %}
+<section class="se-page-header">
+  <div><h1>Leads</h1><p class="se-muted">Consent-based captured leads, plus the lead magnets and email sequences that feed them.</p></div>
+  <a class="se-btn" href="/leads/export.csv">Export CSV</a>
+</section>
+
+<div class="se-card">
+  <table class="se-table">
+    <thead><tr><th>Email</th><th>Name</th><th>Interest</th><th>Consent</th><th>Suppressed</th><th>Latest campaign</th><th>Latest source</th><th>Updated</th></tr></thead>
+    <tbody>
+    {% for lead in leads %}
+      {% set latest = lead.latest_touch or {} %}
+      <tr><td>{{ lead.email }}</td><td>{{ lead.name }}</td><td>{{ lead.interest }}</td><td>{{ lead.consent }}</td><td>{{ lead.suppressed }}</td><td>{{ latest.campaign_id }}</td><td>{{ latest.utm_source }}</td><td>{{ lead.updated_at }}</td></tr>
+    {% else %}
+      <tr><td colspan="8">No leads captured yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Lead magnets + email sequences: the assets that capture & nurture leads -->
+<div class="se-grid cols-2 se-mt-3" style="gap: 1rem; align-items: start;">
+  <div>
+    <h2 class="lead-assets-h">🧲 Lead magnets</h2>
+    <div class="se-text-xs se-text-fg2 se-mb-2">The opt-in offers that capture leads · <code>content/lead-magnets/</code></div>
+    {% for a in lead_magnets %}
+    <details class="se-card lead-asset">
+      <summary><span class="mono se-text-cyan">{{ a.name }}</span> <span class="se-text-xs se-text-fg2">· {{ "%.1f"|format(a.size / 1024) }} KB</span></summary>
+      <div class="se-flex se-gap-1 se-mt-2" style="justify-content: flex-end;">
+        <button type="button" class="se-btn copy-asset">📋 Copy</button>
+      </div>
+      <div class="render-md">{{ a.content }}</div>
+      <textarea class="asset-raw" style="display: none;">{{ a.content }}</textarea>
+    </details>
+    {% else %}
+    <div class="se-card se-text-fg2 se-text-sm">No lead magnets yet. Add markdown to <code>content/lead-magnets/</code>.</div>
+    {% endfor %}
+  </div>
+
+  <div>
+    <h2 class="lead-assets-h">✉️ Email sequences</h2>
+    <div class="se-text-xs se-text-fg2 se-mb-2">The nurture emails new leads receive · <code>content/email-sequences/</code></div>
+    {% for a in email_sequences %}
+    <details class="se-card lead-asset">
+      <summary><span class="mono se-text-cyan">{{ a.name }}</span> <span class="se-text-xs se-text-fg2">· {{ "%.1f"|format(a.size / 1024) }} KB</span></summary>
+      <div class="se-flex se-gap-1 se-mt-2" style="justify-content: flex-end;">
+        <button type="button" class="se-btn copy-asset">📋 Copy</button>
+      </div>
+      <div class="render-md">{{ a.content }}</div>
+      <textarea class="asset-raw" style="display: none;">{{ a.content }}</textarea>
+    </details>
+    {% else %}
+    <div class="se-card se-text-fg2 se-text-sm">No email sequences yet. Add markdown to <code>content/email-sequences/</code>.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+  .lead-assets-h { font-size: 1.05rem; font-weight: 700; color: var(--se-cyan); letter-spacing: 0.02em; margin: 0 0 0.3rem 0; }
+  .lead-asset { margin-bottom: 0.6rem; }
+  .lead-asset > summary { cursor: pointer; font-size: 0.9rem; list-style: none; user-select: none; }
+  .lead-asset > summary::-webkit-details-marker { display: none; }
+  .lead-asset > summary::before { content: '▸ '; color: var(--se-fg-2); }
+  .lead-asset[open] > summary::before { content: '▾ '; }
+  .lead-asset .se-md, .lead-asset .render-md { margin-top: 0.5rem; font-size: 0.85rem; line-height: 1.55; }
+</style>
+
+<script>
+  document.querySelectorAll('.copy-asset').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ta = btn.closest('.lead-asset').querySelector('.asset-raw');
+      try {
+        await navigator.clipboard.writeText(ta.value);
+        const o = btn.textContent; btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = o; }, 1200);
+      } catch (e) { alert('Copy failed: ' + e.message); }
+    });
+  });
+</script>
+{% endblock %}

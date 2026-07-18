@@ -1,0 +1,79 @@
+# Distribution platform configuration
+# Phase A (now): the pipeline writes per-platform "kits" under each
+#   content/<run>/distribution/<platform>/<clip>/  with caption.txt + metadata.json.
+# Phase B (next): YouTube auto-upload via Data API v3 (OAuth-driven).
+# Phase C (later): TikTok Content Posting API + Instagram Graph API
+#                  (both require business approval — onboarding takes weeks).
+# Rumble: NO public upload API. Only manual or browser automation. We ship a
+#   manual-upload kit (mp4 + caption + tags); user clicks "Open Rumble upload".
+
+platforms:
+  youtube:
+    enabled: true
+    auto_upload: true                  # after queue approval, upload via OAuth
+    default_privacy: "unlisted"        # "public" | "unlisted" | "private"
+    short_hashtag: "#Shorts"
+    default_category_id: 22            # People & Blogs
+    default_tags:
+      - futures trading
+      - prop firm
+      - ninjatrader
+      - day trading
+      - drawdown
+    description_footer: |
+
+      Free NinjaTrader risk-control checklist (2-min setup):
+      https://shadowedgetools.com/checklist?utm_source=youtube&utm_medium=video&utm_campaign=youtube_organic
+
+      Shadow Edge Tools — risk-management add-ons for NinjaTrader 8.
+
+  tiktok:
+    enabled: true
+    # Direct Post approved 2026-06-24. Publishing is ONE-CLICK + human-gated from
+    # the console (Publish to TikTok button), NOT a blind timer. Keep auto_upload
+    # false on purpose — flip only if you later want unattended public posting.
+    auto_upload: false
+    default_privacy: "PUBLIC_TO_EVERYONE"
+    default_hashtags:
+      - daytrader
+      - propfirm
+      - futurestrading
+      - fyp
+      - traderlife
+
+  instagram:
+    enabled: true
+    auto_upload: false                 # requires Business account + Graph API
+    default_hashtags:
+      - daytrader
+      - propfirm
+      - futurestrading
+      - reels
+      - traderlife
+
+  rumble:
+    enabled: true
+    auto_upload: false                 # no public API; manual upload only
+    upload_url: "https://rumble.com/upload.php"
+    default_tags:
+      - futures
+      - prop firm
+      - day trading
+
+# Defaults applied to every clip's metadata
+clip_defaults:
+  language: "en-US"
+  made_for_kids: false
+  notify_subscribers: true             # YouTube only
+
+# Schedule (Phase B/C): if auto_upload is true and a clip has no
+# `metadata.uploaded_at`, the schedule worker will dispatch one upload
+# per scheduled interval. Anti-spam: never more than 1 upload / 5 min
+# per platform.
+schedule:
+  enabled: false                       # turn on when Phase B is live
+  daily_window:
+    start: "07:00"
+    end: "20:00"
+    timezone: "America/New_York"
+  per_platform_min_gap_min: 60

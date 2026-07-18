@@ -1,0 +1,18 @@
+agents:
+  - scout
+  - strategy
+  - creative
+  - compliance
+  - distribution
+  - email
+  - analytics
+  - optimizer
+llm_enrichment:
+  enabled_when_env_present: ANTHROPIC_API_KEY
+  dry_run_side_effects: false
+failure_policy:
+  isolate_agent_failures: true
+  continue_safe_downstream: true
+logs:
+  runs: state/agent-runs.jsonl
+  tasks: state/agent-tasks.jsonl
