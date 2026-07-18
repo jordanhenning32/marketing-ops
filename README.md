@@ -298,8 +298,3 @@ python -m pip install -r requirements.txt
 - Bad campaign copy: check `08-compliance-check.md`; distribution refuses failed compliance.
 - Duplicate runs: safe. Queue entries are idempotent and run logs are append-only.
 
----
-
-## About this repository
-
-This is a **clean public snapshot**. The system was designed, built, and iterated privately over months of real use, then published here as a single squashed release — the original commit history is withheld to protect client data and internal IP. The engineering is fully represented; I'm glad to walk through the real development history and the live system on a call.
