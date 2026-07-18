@@ -9,9 +9,10 @@ capture, email-nurture queueing, analytics import/reporting, and daily ops
 reports — orchestrated across Anthropic/OpenAI/Google models via a per-role LLM
 router, with an append-only audit trail for every agent run and publish action.
 
-> **In production for a real business:** this pipeline produces the videos on the
-> [@ShadowEdgeTools](https://www.youtube.com/@ShadowEdgeTools) YouTube channel and
-> the accompanying cross-platform social posts.
+> **Runs a real one-person business:** this pipeline drafts and stages the content
+> behind the [@ShadowEdgeTools](https://www.youtube.com/@ShadowEdgeTools) YouTube
+> channel and the cross-platform social posts — a human reviews and publishes, and
+> live auto-posting stays gated off by default (see below).
 
 **Safety-first by design:** dry-run/manual is the default. Nothing is emailed or
 published to any platform unless *every* live gate passes — CLI `--live`, config
@@ -296,3 +297,9 @@ python -m pip install -r requirements.txt
 - Missing credentials: fill `.env`, but do not enable live gates until the platform/API permission is confirmed.
 - Bad campaign copy: check `08-compliance-check.md`; distribution refuses failed compliance.
 - Duplicate runs: safe. Queue entries are idempotent and run logs are append-only.
+
+---
+
+## About this repository
+
+This is a **clean public snapshot**. The system was designed, built, and iterated privately over months of real use, then published here as a single squashed release — the original commit history is withheld to protect client data and internal IP. The engineering is fully represented; I'm glad to walk through the real development history and the live system on a call.
