@@ -1,6 +1,6 @@
 # Shadow Edge Marketing Ops Console
 
-**An AI-run marketing operations platform for a one-person software business — an 8-agent automated team (Scout → Strategy → Creative → Compliance → Distribution → Email → Analytics → Optimizer) that turns one long video into a multi-platform campaign, captures and nurtures leads, imports analytics, and produces a daily ops plan — all behind hard safety gates.**
+**An AI-run marketing operations platform for a one-person software business — an automated agent team (Scout → Strategy → Creative → Compliance → Distribution → Email → Analytics → Optimizer) that turns one long video into a multi-platform campaign, captures and nurtures leads, imports analytics, and produces a daily ops plan — all behind hard safety gates.**
 
 "Hermes" runs the daily marketing loop: campaign generation, a content
 multiplier (long video → transcript → shorts → six-platform drafts + distribution
